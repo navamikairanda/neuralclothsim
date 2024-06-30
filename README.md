@@ -94,7 +94,7 @@ python train.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/
 python train.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
 python train.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
 python train.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
-tensorboard --logdir ? --port=?
+tensorboard --logdir logs
 ```
 
 Command Line Arguments for train.py

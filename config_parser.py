@@ -68,7 +68,7 @@ def get_config_parser():
     parser.add_argument('--initial_acceleration_loss_weight', type=float, default=1.0, help='weight for initial acceleration loss')
     
     # logging/saving options
-    parser.add_argument('--logging_dir', type=str, default='', help='root directory for logging')
+    parser.add_argument('--logging_dir', type=str, default='logs', help='root directory for logging')
     parser.add_argument("--i_weights", type=int, default=200, help='frequency of saving NDF weights as checkpoints')
     parser.add_argument("--i_summary", type=int, default=100, help='frequency of plotting losses')
     parser.add_argument("--i_test", type=int, default=100, help='frequency of evaluating NDF and saving resulting meshes and videos')

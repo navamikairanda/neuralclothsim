@@ -221,7 +221,7 @@ def compute_energy(deformations, ref_geometry, material, external_load, temporal
         mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(ref_geometry.a) #+ kinetic_energy
     elif isinstance(material, NonLinearMaterial):
         material_direction_1 = normalize((ref_geometry.a_1), dim=2)
-        material_direction_2 = ref_geometry.a_3.linalg.cross(material_direction_1)
+        material_direction_2 = torch.linalg.cross(ref_geometry.a_3, material_direction_1)
         #material_direction_3 = ref_geometry.a_3        
         hyperelastic_strain_energy_top = compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, -0.5 * material.thickness)
         hyperelastic_strain_energy_mid = compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, 0.)
