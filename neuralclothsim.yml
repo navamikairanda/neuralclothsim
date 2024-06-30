@@ -1,0 +1,14 @@
+# This might be incorrect, neuralclothsim1 has python=3.10, cudatoolkit=11.8 instead
+name: neuralclothsim1
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - cudatoolkit=11.3
+  - pip=22.3
+  - pytorch
+  - torchvision
+  - pip:
+    - "git+https://github.com/facebookresearch/pytorch3d.git"

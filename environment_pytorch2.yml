@@ -1,4 +1,4 @@
-name: neuralclothsim
+name: neuralclothsim2
 channels:
   - pytorch
   - nvidia
