@@ -18,63 +18,19 @@ This repository contains the official implementation of the paper "NeuralClothSi
 
 
 ## Installation
+Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies
 
-### Hardware Requirements
-Clone this repository to `${code_root}`. The following sets up a conda environment with all NeuralClothSim dependencies
 ```
-# Final
-conda create --name neuralclothsim1 python=3.9
-conda activate neuralclothsim1
-conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
-conda install -c bottler nvidiacub
-pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-or 
-conda install pytorch3d -c pytorch3d
-
-
 conda create --name neuralclothsim python=3.10
 conda activate neuralclothsim
 conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
-conda install -c bottler nvidiacub
-pip install "git+https://github.com/facebookresearch/pytorch3d.git"
-or 
-conda install pytorch3d -c pytorch3d
-
-conda create --name neuralclothsim2 python=3.9
-conda activate neuralclothsim2
-pip3 install --pre torch torchvision --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
-
-conda create --name neuralclothsim python=3.9
-conda activate neuralclothsim
-conda install pytorch=1.13.0 torchvision cudatoolkit=11.6 -c pytorch -c nvidia
-conda install -c fvcore -c iopath -c conda-forge fvcore iopath
-conda install -c bottler nvidiacub
-conda install pytorch3d -c pytorch3d
-
-----------------------------------------------------------------------------------------
-conda create --name neuralclothsim1 python=3.10
-conda activate neuralclothsim1
-conda install pytorch torchvision pytorch-cuda -c pytorch -c nvidia
-conda install -c fvcore -c iopath -c conda-forge fvcore iopath
-conda install -c bottler nvidiacub
-conda install pytorch3d -c pytorch3d
-----------------------------------------------------------------------------------------
-conda install pytorch torchvision pytorch-cuda pytorch3d -c pytorch3d -c pytorch -c nvidia
-conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia #Fai
-conda install pytorch=2.0.1 torchvision pytorch-cuda=11.8 -c pytorch -c nvidia #Failed
-conda install pytorch torchvision
 conda install -c fvcore -c iopath -c conda-forge fvcore iopath
 conda install pytorch3d -c pytorch3d
-conda install pytorch tqdm tensorboard
-
-# Uselesss
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch -c nvidia
-conda install -c fvcore -c iopath -c conda-forge fvcore iopath
-conda install -c bottler nvidiacub
-conda install pytorch3d -c pytorch3d
+conda install tensorboard matplotlib imageio natsort configargparse
+pip install iopath==0.1.10
 ```
 
-or simply create from the environment.yml file
+Alternatively, you can setup conda using the from the `environment.yml` file
 ```
 conda env create -f environment.yml
 conda activate neuralclothsim
@@ -94,6 +50,10 @@ python train.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/
 python train.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
 python train.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
 python train.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
+
+```
+
+```
 tensorboard --logdir logs
 ```
 
