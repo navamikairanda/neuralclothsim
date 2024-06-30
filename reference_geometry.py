@@ -33,7 +33,7 @@ class ReferenceGeometry():
         base_vectors = jacobian(self.midsurface_positions, self.curvilinear_coords)[0]
         self.a_1 = base_vectors[...,0]
         self.a_2 = base_vectors[...,1]
-        self.a_3 = normalize(torch.cross(self.a_1, self.a_2), dim=2)
+        self.a_3 = normalize(torch.linalg.cross(self.a_1, self.a_2), dim=2)
               
     def metric_tensor(self):    
         '''

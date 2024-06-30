@@ -214,14 +214,14 @@ def compute_energy(deformations, ref_geometry, material, external_load, temporal
         tb_writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,:ref_geometry.spatial_sidelen**2], kappa_1_2[0,:ref_geometry.spatial_sidelen**2], kappa_1_2[0,:ref_geometry.spatial_sidelen**2], kappa_2_2[0,:ref_geometry.spatial_sidelen**2], ref_geometry.spatial_sidelen), i)
     
     if isinstance(material, LinearMaterial):        
-        hyperelastic_strain_energy = compute_linear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, ref_geometry)
-        external_energy = torch.einsum('ijk,ijk->ij', external_load, deformations)
+        hyperelastic_strain_energy_mid = compute_linear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, ref_geometry)
+        external_energy_mid = torch.einsum('ijk,ijk->ij', external_load, deformations)
         velocity = jacobian(deformations, temporal_coords)[0]
         kinetic_energy = 0.5 * material.mass_area_density * torch.einsum('ijkl,ijkl->ij', velocity, velocity)
-        mechanical_energy = (hyperelastic_strain_energy - external_energy) * torch.sqrt(ref_geometry.a) #+ kinetic_energy
+        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(ref_geometry.a) #+ kinetic_energy
     elif isinstance(material, NonLinearMaterial):
         material_direction_1 = normalize((ref_geometry.a_1), dim=2)
-        material_direction_2 = ref_geometry.a_3.cross(material_direction_1)
+        material_direction_2 = ref_geometry.a_3.linalg.cross(material_direction_1)
         #material_direction_3 = ref_geometry.a_3        
         hyperelastic_strain_energy_top = compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, -0.5 * material.thickness)
         hyperelastic_strain_energy_mid = compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, 0.)

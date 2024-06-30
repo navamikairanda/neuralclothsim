@@ -1,0 +1,182 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "napkin",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/napkin.ini", 
+                "-n", 
+                "napkin_debug",
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "napkin_strong_form",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/napkin_strong_form.ini", 
+                "-n", 
+                "napkin_debug_strong_form", 
+                "--n_iterations", 
+                "200", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        }, 
+        {
+            "name": "drape",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/drape.ini",
+                "-n", 
+                //"drape_debug_canvas", 
+                "drape_debug_linear", 
+                "-m",
+                "material/linear_1.ini"
+                //"material/canvas.ini"
+                //"material/denim.ini"
+            ]
+        }, 
+        {
+            "name": "napkin_mesh",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/napkin_mesh.ini",
+                "-n", 
+                "napkin_mesh_debug",
+                "--reference_mlp_n_iterations", 
+                "100", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        }, 
+        {
+            "name": "flag_mesh",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/flag_mesh.ini",
+                "-n", 
+                "flag_mesh_debug", 
+                "--reference_mlp_n_iterations", 
+                "100", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "irregular_mesh",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/irregular_mesh.ini", 
+                "-n", 
+                "irregular_mesh_debug", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        }, 
+        {
+            "name": "sleeve_buckle",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/sleeve_buckle.ini", 
+                "-n", 
+                "sleeve_buckle_debug", 
+                "-m",
+                //"material/linear_1.ini", 
+                "material/canvas.ini"
+            ]
+        },
+        {
+            "name": "skirt_twist",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/skirt_twist.ini",
+                "-n", 
+                //"skirt_debug_canvas", 
+                "skirt_twist_debug_linear", 
+                "-m",
+                "material/linear_1.ini"
+                //"material/canvas.ini"
+            ]
+        },
+        {
+            "name": "skirt_static_rim",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/skirt_static_rim.ini",
+                "-n", 
+                //"skirt_debug_canvas", 
+                "skirt_static_rim_debug", 
+                "-m",
+                //"material/linear_1.ini"
+                "material/canvas.ini"
+            ]
+        },  
+        {
+            "name": "collision",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/collision.ini", 
+                "-n", 
+                "collision_debug",
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+    ]
+}
