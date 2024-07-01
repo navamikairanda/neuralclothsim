@@ -1,14 +1,3 @@
-'''
-python train.py -c config/napkin.ini --expt_name napkin -m material/canvas.ini
-python train.py -c config/napkin_mesh.ini --expt_name napkin_mesh
-python train.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
-python train.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
-python train.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/canvas.ini
-python train.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
-python train.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
-python train.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
-tensorboard --logdir ? --port=?
-'''
 import torch
 import os
 from tqdm import trange
@@ -29,7 +18,6 @@ from config_parser import get_config_parser
 from config_parser import device
 from reference_midsurface import ReferenceMidSurface
 from modules import compute_sdf
-from helper import get_plot_single_tensor
     
 def train():  
     relu = nn.ReLU()
@@ -88,7 +76,7 @@ def train():
     tb_writer.add_text('args', str(args))
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
-        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_spatial_sidelen, args.train_temporal_sidelen, reference_midsurface, tb_writer, debug_ref_geometry=False)
+        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_spatial_sidelen, args.train_temporal_sidelen, reference_midsurface, tb_writer, debug_ref_geometry=True)
         deformations = ndf(ref_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)

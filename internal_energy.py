@@ -2,7 +2,7 @@ import torch
 from torch.nn.functional import normalize
 from diff_operators import jacobian
 from material import LinearMaterial, NonLinearMaterial
-from helper import get_plot_grid_tensor, get_plot_single_tensor
+from plot_helper import get_plot_grid_tensor, get_plot_single_tensor
 
 def covariant_first_derivative_of_covariant_first_order_tensor(covariant_vectors, ref_geometry):
     vpd = jacobian(torch.stack(covariant_vectors, dim=2), ref_geometry.curvilinear_coords)[0]

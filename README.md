@@ -83,6 +83,11 @@ To evaluate the trained models, run the following command:
 ```
 python test.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
 ```
+
+## FAQ
+
+- *I run out of GPU memory, what do I do?* The GPU memory consumption is determined by the number of samples drawn from the reference midsurface. You can reduce the number of samples in the `config/*.ini` file.
+ 
 ## Citation
 
 If you use this code for your research, please cite:

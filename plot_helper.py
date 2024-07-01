@@ -1,31 +1,4 @@
-import math
-import numpy as np
-import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-import torch
-
-def grads2img(gradients):
-    mG = gradients.detach().squeeze(0).cpu()
-
-    # assumes mG is [row,cols,2]
-    nRows = mG.shape[0]
-    nCols = mG.shape[1]
-    mGr = mG[:, :, 0]
-    mGc = mG[:, :, 1]
-    mGa = np.arctan2(mGc, mGr)
-    mGm = np.hypot(mGc, mGr)
-    mGhsv = np.zeros((nRows, nCols, 3), dtype=np.float32)
-    mGhsv[:, :, 0] = (mGa + math.pi) / (2. * math.pi)
-    mGhsv[:, :, 1] = 1.
-
-    nPerMin = np.percentile(mGm, 5)
-    nPerMax = np.percentile(mGm, 95)
-    mGm = (mGm - nPerMin) / (nPerMax - nPerMin)
-    mGm = np.clip(mGm, 0, 1)
-
-    mGhsv[:, :, 2] = mGm
-    mGrgb = colors.hsv_to_rgb(mGhsv)
-    return torch.from_numpy(mGrgb).permute(2, 0, 1)
 
 def get_plot_single_tensor(tensor, spatial_sidelen):
     # assumes mG is [row*cols, 1]

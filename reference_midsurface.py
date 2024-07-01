@@ -14,8 +14,6 @@ from modules import SirenReference, GELUReference
 from sampler import sample_points_from_meshes
 from pytorch3d.structures import Meshes
 from reference_geometry import ReferenceGeometry
-from helper import get_plot_single_tensor, get_plot_grid_tensor
-
 
 def generate_mesh_topology(spatial_sidelen):
     rows = cols = spatial_sidelen

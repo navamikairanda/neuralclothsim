@@ -2,7 +2,7 @@ import torch
 from torch.nn.functional import normalize
 
 from diff_operators import jacobian
-from helper import grads2img, get_plot_grid_tensor, get_plot_single_tensor
+from plot_helper import get_plot_grid_tensor
 
 class ReferenceGeometry(): 
     def __init__(self, curvilinear_coords, spatial_sidelen, temporal_sidelen, reference_midsurface, tb_writer, debug_ref_geometry=False):
@@ -20,14 +20,9 @@ class ReferenceGeometry():
         self.a_3 = self.a_3.repeat(1, self.temporal_sidelen, 1)
         self.a__1 = self.a__1.repeat(1, self.temporal_sidelen, 1)
         self.a__2 = self.a__2.repeat(1, self.temporal_sidelen, 1)
-        if debug_ref_geometry:
-            a = torch.stack([self.a_1, self.a_2], dim=3)[0].view(spatial_sidelen, spatial_sidelen, 3, 2)
-            tb_writer.add_image('a_x', grads2img(a[...,0,:]))
-            tb_writer.add_image('a_y', grads2img(a[...,1,:]))
-            tb_writer.add_image('a_z', grads2img(a[...,2,:]))           
+        if debug_ref_geometry:       
             tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0], spatial_sidelen))
             tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:curvilinear_coords.shape[1]], self.b_1_2[0,:curvilinear_coords.shape[1]],self.b_2_1[0,:curvilinear_coords.shape[1]], self.b_2_2[0,:curvilinear_coords.shape[1]], spatial_sidelen))            
-            #tb_writer.add_figure('curvilinear_tensor', get_plot_single_tensor(self.midsurface_positions[0,:curvilinear_coords.shape[1],0], spatial_sidelen))
             
     def base_vectors(self):
         base_vectors = jacobian(self.midsurface_positions, self.curvilinear_coords)[0]
