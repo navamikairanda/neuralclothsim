@@ -16,7 +16,6 @@ This repository contains the official implementation of the paper "NeuralClothSi
 *Despite existing 3D cloth simulators producing realistic results, they predominantly operate on discrete surface representations (e.g. points and meshes) with a fixed spatial resolution, which often leads to large memory consumption and resolution-dependent simulations. Moreover, back-propagating gradients through the existing solvers is difficult, and they hence cannot be easily integrated into modern neural architectures. In response, this paper re-thinks physically plausible cloth simulation: We propose NeuralClothSim, i.e., a new quasistatic cloth simulator using thin shells, in which surface deformation is encoded in neural network weights in the form of a neural field. Our memory-efficient solver operates on a new continuous coordinate-based surface representation called neural deformation fields (NDFs); it supervises NDF equilibria with the laws of the non-linear Kirchhoff-Love shell theory with a non-linear anisotropic material model. NDFs are adaptive: They 1) allocate their capacity to the deformation details and 2) allow surface state queries at arbitrary spatial resolutions without re-training. We show how to train NeuralClothSim while imposing hard boundary conditions and demonstrate multiple applications, such as material interpolation and simulation editing. The experimental results highlight the effectiveness of our continuous neural formulation.*
 
 
-
 ## Installation
 Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies
 
@@ -38,6 +37,19 @@ conda activate neuralclothsim
 
 ## Usage
 
+### High-level overview
+
+The codebase has the following structure:
+
+* Simulation configurations are in `config/` directory. For example, `config/drape.ini` contains the following:
+* Material configutations are in `material/` directory. For example, `material/canvas.ini` contains the following: . Material model is defined in `material/material.py`.
+* Training and testing scripts are in `train.py` and `test.py` respectively.
+* `modules.py` contains the implementation of the neural deformation field and the boundary conditios.
+* `internal_energy.py` contains the implementation of the internal energy of the cloth.
+* `reference_midsurface.py` and `reference_geometry.py`contains the implementation of the reference midsurface of the cloth.
+* `sampler.py` contains the implementation of the sampler for the cloth.
+* `utils.py` contains the implementation of the utility functions.
+
 ### Running
 For full version, check out train.py, reproduce simulations with
 ```
@@ -50,19 +62,27 @@ python train.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/
 python train.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
 python train.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
 python train.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
-
 ```
 
 ```
 tensorboard --logdir logs
 ```
 
-Command Line Arguments for train.py
+<details>
+<summary><span style="font-weight: bold;">Command line arguments for train.py</span></summary>
 
+  #### --source_path / -s
+  Path to the source directory containing a COLMAP or Synthetic NeRF data set.
+
+</details>
 Similarly, replacing `napkin` with `sleeve` or `skirt` will reproduce the corresponding simulations.
 
 ### Evaluation
 
+To evaluate the trained models, run the following command:
+```
+python test.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
+```
 ## Citation
 
 If you use this code for your research, please cite:

@@ -26,7 +26,7 @@ from internal_energy import compute_energy
 from test import test
 from logger import get_logger
 from config_parser import get_config_parser
-from config import device
+from config_parser import device
 from reference_midsurface import ReferenceMidSurface
 from modules import compute_sdf
 from helper import get_plot_single_tensor

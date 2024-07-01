@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from torch.utils.data import Dataset
-from config import device
+from config_parser import device
 
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.

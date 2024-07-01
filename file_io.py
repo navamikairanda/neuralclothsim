@@ -6,7 +6,7 @@ import torch
 from pytorch3d.io import save_obj, load_obj
 from pytorch3d.structures import Pointclouds
 from pytorch3d.structures import Meshes, join_meshes_as_batch
-from config import device
+from config_parser import device
 
 to8b = lambda x : (255 * np.clip(x, 0, 1)).astype(np.uint8)
 

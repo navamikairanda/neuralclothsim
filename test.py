@@ -1,6 +1,6 @@
 import torch 
 from file_io import save_images, save_meshes, save_pointclouds
-from config import device
+from config_parser import device
 import torch.nn as nn
 from torch.nn.functional import relu
 from modules import compute_sdf

@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 import math
 from torch.nn.functional import normalize
-from config import device
+from config_parser import device
 
 class SineLayer(nn.Module):      
     def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30.):

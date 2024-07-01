@@ -1,5 +1,8 @@
 import math
 import configargparse
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_config_parser():
     parser = configargparse.ArgumentParser()

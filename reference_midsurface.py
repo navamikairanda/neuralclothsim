@@ -7,7 +7,7 @@ from tqdm import trange
 from pytorch3d.io import save_obj, load_obj
 from torch.utils.data import DataLoader
 
-from config import device
+from config_parser import device
 from sampler import GridSampler
 from diff_operators import jacobian
 from modules import SirenReference, GELUReference
