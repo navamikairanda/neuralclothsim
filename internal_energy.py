@@ -122,7 +122,7 @@ def contravariant_base_vectors_old(ref_geometry):
     g__2__2 = torch.einsum('ijk,ijl->ijkl', ref_geometry.a__2, ref_geometry.a__2)
     return g__1__1, g__1__2, g__2__1, g__2__2
             
-def compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, xi__3, StVK=False):
+def compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, xi__3):
     # _ob are the strains in the original basis
     E11_ob = epsilon_1_1 + xi__3 * kappa_1_1
     E12_ob = epsilon_1_2 + xi__3 * kappa_1_2
@@ -138,14 +138,15 @@ def compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kap
     E12 = material_direction_1[...,0] * material_direction_2[...,0] * E11_ob + (material_direction_1[...,0] * material_direction_2[...,1] + material_direction_1[...,1] * material_direction_2[...,0]) * E12_ob + material_direction_1[...,1] * material_direction_2[...,1] * E22_ob
     E22 = material_direction_2[...,0] ** 2 * E11_ob + 2 * material_direction_2[...,0] * material_direction_2[...,1] * E12_ob + material_direction_2[...,1] ** 2 * E22_ob
     '''
-    #E11, E12, E22 = E11_ob, E12_ob, E22_ob
-    E11_valid = torch.logical_and(E11 > material.E_11_min, E11 < material.E_11_max)
-    E12_valid = torch.logical_and(E12 > material.E_12_min, E12 < material.E_12_max)
-    E22_valid = torch.logical_and(E22 > material.E_22_min, E22 < material.E_22_max)
-    if StVK:        
+    #E11, E12, E22 = E11_ob, E12_ob, E22_ob    
+    if material.StVK:        
         # St. Venant-Kirchhoff model [Basar 2000]
         hyperelastic_strain_energy = material.a11 * 0.5 * E11 ** 2 + material.a12 * E11 * E22 + material.a22 * 0.5 * E22 ** 2 + material.G12 * E12 ** 2                  
-    else:         
+    else:
+        E11_valid = torch.logical_and(E11 > material.E_11_min, E11 < material.E_11_max)
+        E12_valid = torch.logical_and(E12 > material.E_12_min, E12 < material.E_12_max)
+        E22_valid = torch.logical_and(E22 > material.E_22_min, E22 < material.E_22_max)
+             
         E11_clamped = torch.clamp(E11, material.E_11_min, material.E_11_max)
         E12_clamped = torch.clamp(E12, material.E_12_min, material.E_12_max)
         E22_clamped = torch.clamp(E22, material.E_22_min, material.E_22_max)
@@ -170,16 +171,18 @@ def compute_nonlinear_internal_energy(epsilon_1_1, epsilon_1_2, epsilon_2_2, kap
         #Where both are not valid, the energy is zero
         hyperelastic_strain_energy += (~E11_valid * ~E22_valid) * (material.a12 * eta_first_derivative_1_E11_22_clamped + material.a12 * E11_clamped * E22_clamped * eta_second_derivative_1_E11_22_clamped) * (E11 - E11_clamped) * (E22 - E22_clamped)
         
+        if not i % 200:
+            tb_writer.add_histogram('param/E11_valid', E11_valid, i)
+            tb_writer.add_histogram('param/E12_valid', E12_valid, i)
+            tb_writer.add_histogram('param/E22_valid', E22_valid, i)
+            tb_writer.add_histogram('param/E11_min_valid', E11 > material.E_11_min, i)
+            tb_writer.add_histogram('param/E11_max_valid', E11 < material.E_11_max, i)
+            tb_writer.add_histogram('param/E12_min_valid', E12 > material.E_12_min, i)
+            tb_writer.add_histogram('param/E12_max_valid', E12 < material.E_12_max, i)
+            tb_writer.add_histogram('param/E22_min_valid', E22 > material.E_22_min, i)
+            tb_writer.add_histogram('param/E22_max_valid', E22 < material.E_22_max, i)
+        
     if not i % 200:
-        tb_writer.add_histogram('param/E11_valid', E11_valid, i)
-        tb_writer.add_histogram('param/E12_valid', E12_valid, i)
-        tb_writer.add_histogram('param/E22_valid', E22_valid, i)
-        tb_writer.add_histogram('param/E11_min_valid', E11 > material.E_11_min, i)
-        tb_writer.add_histogram('param/E11_max_valid', E11 < material.E_11_max, i)
-        tb_writer.add_histogram('param/E12_min_valid', E12 > material.E_12_min, i)
-        tb_writer.add_histogram('param/E12_max_valid', E12 < material.E_12_max, i)
-        tb_writer.add_histogram('param/E22_min_valid', E22 > material.E_22_min, i)
-        tb_writer.add_histogram('param/E22_max_valid', E22 < material.E_22_max, i)
         tb_writer.add_histogram('param/E11', E11, i)
         tb_writer.add_histogram('param/E12', E12, i)
         tb_writer.add_histogram('param/E22', E22, i)

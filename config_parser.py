@@ -10,22 +10,22 @@ def get_config_parser():
     parser.add_argument('-n', '--expt_name', type=str, required=True, help='experiment name; also the name of subdirectory in logging_dir')
 
     # simulation parameters
-    parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of reference geometry')
-    parser.add_argument('--xi__1_scale', type=float, default=2 * math.pi, help='scale for xi__1')
-    parser.add_argument('--xi__2_scale', type=float, default=1, help='scale for xi__2')
-    parser.add_argument('--boundary_condition_name', type=str, help='name of spatio-temporal boundary condition')
+    parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of the reference geometry; can be rectangle, cylinder, cone or mesh')
+    parser.add_argument('--xi__1_scale', type=float, default=2 * math.pi, help='scale for xi__1; 2 * pi for cylinder or cone, and 1 for rectangle or mesh')
+    parser.add_argument('--xi__2_scale', type=float, default=1, help='scale for xi__2; 1 for all reference geometries')
+    parser.add_argument('--boundary_condition_name', type=str, help='name of the spatio-temporal boundary condition; can be top_left_fixed, top_left_top_right_drape for rectangle, and two_rims_compression for cylinder, and top_rim_fixed, top_rim_torsion for cone')
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
-    parser.add_argument('--end_time', type=float, default=1, help='simulation end time')
     
+    # The following parameters are relevant only if the reference geometry is a mesh (i.e. reference_geometry_name == 'mesh')
     parser.add_argument('--reference_geometry_source', type=str, default='assets/meshes/flag.obj', help='source file for reference geometry')
-    parser.add_argument('--reference_mlp_n_iterations', type=int, default=5000, help='number of MLP iterations for reference geometry')
-    parser.add_argument('--reference_mlp_lrate', type=float, default=1e-5, help='learning rate for reference geometry')
-    parser.add_argument('--boundary_condition_vertices', type=int, nargs='+', help='vertices for boundary condition')
+    parser.add_argument('--reference_mlp_n_iterations', type=int, default=5000, help='number of iterations for fitting the reference geometry MLP')
+    parser.add_argument('--reference_mlp_lrate', type=float, default=1e-5, help='learning rate for the reference geometry MLP')
+    parser.add_argument('--boundary_condition_vertices', type=int, nargs='+', help='vertices for boundary condition on the reference geometry')
     
     # material parameters
-    parser.add('-m', '--material_filepath', is_config_file=True, default='material/canvas.ini', help='name of material')
-    parser.add_argument('--material_type', type=str, help='type of material; can be linear or nonlinear')
-    parser.add_argument('--StVK', type=int, help='whether to use StVK or the (full) Clyde material model')
+    parser.add('-m', '--material_filepath', is_config_file=True, default='material/canvas.ini', help='name of the material')
+    parser.add_argument('--material_type', type=str, help='type of material; can be linear (isotropic) or nonlinear (orthotropic Clyde model)')
+    parser.add_argument('--StVK', action='store_true', help='whether to use the St.Venant-Kirchhoff simplification of the Clyde material model')
     
     parser.add_argument('--mass_area_density', type=float, default=0.144, help='mass area density or rho in kg/m^2 ')
     parser.add_argument('--thickness', type=float, default=0.0012, help='thickness or tau in meters')
