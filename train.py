@@ -38,7 +38,7 @@ def train():
      
     reference_midsurface = ReferenceMidSurface(args, tb_writer)
     
-    ndf = Siren(args.end_time, args.xi__1_scale, args.xi__2_scale, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
+    ndf = Siren(args.xi__1_scale, args.xi__2_scale, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
     if args.i_ckpt is not None:
@@ -68,9 +68,9 @@ def train():
     external_load = torch.tensor(args.gravity_acceleration, device=device).expand(1, args.train_temporal_sidelen * args.train_spatial_sidelen**2, 3) * material.mass_area_density #* material.thickness
 
     if False: #args.reference_geometry_name in ['mesh']:
-        sampler = MeshSampler(reference_midsurface.template_mesh, reference_midsurface.curvilinear_coords, args.train_spatial_sidelen, args.train_temporal_sidelen, args.end_time)
+        sampler = MeshSampler(reference_midsurface.template_mesh, reference_midsurface.curvilinear_coords, args.train_spatial_sidelen, args.train_temporal_sidelen)
     else:
-        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.end_time, args.xi__1_scale, args.xi__2_scale, 'train')
+        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'train')
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
     tb_writer.add_text('args', str(args))

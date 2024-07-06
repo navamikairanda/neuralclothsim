@@ -25,10 +25,9 @@ class SineLayer(nn.Module):
         return torch.sin(self.omega_0 * self.linear(input))
    
 class Siren(nn.Module):
-    def __init__(self, time_scale, xi__1_scale, xi__2_scale, boundary_condition_name, reference_geometry_name, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
+    def __init__(self, xi__1_scale, xi__2_scale, boundary_condition_name, reference_geometry_name, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
         super().__init__()
         self.k = k
-        self.time_scale = time_scale
         self.xi__1_scale = xi__1_scale
         self.xi__2_scale = xi__2_scale
         self.boundary_condition_name = boundary_condition_name
@@ -82,9 +81,9 @@ class Siren(nn.Module):
 
         ### Normalize coordinates ###
         if self.reference_geometry_name in ['cylinder', 'cone']:
-            normalized_coords = torch.cat([temporal_coords/self.time_scale, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.xi__2_scale], dim=2)
+            normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.xi__2_scale], dim=2)
         elif self.reference_geometry_name in ['rectangle', 'mesh']:
-            normalized_coords = torch.cat([temporal_coords/self.time_scale, curvilinear_coords[...,0:1]/self.xi__1_scale, curvilinear_coords[...,1:2]/self.xi__2_scale], dim=2)
+            normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.xi__1_scale, curvilinear_coords[...,1:2]/self.xi__2_scale], dim=2)
         output = self.net(normalized_coords)
         
         ### Apply boundary condition ###

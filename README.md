@@ -15,6 +15,8 @@ This repository contains the official implementation of the paper "NeuralClothSi
 ## What is NeuralClothSim?
 *Despite existing 3D cloth simulators producing realistic results, they predominantly operate on discrete surface representations (e.g. points and meshes) with a fixed spatial resolution, which often leads to large memory consumption and resolution-dependent simulations. Moreover, back-propagating gradients through the existing solvers is difficult, and they hence cannot be easily integrated into modern neural architectures. In response, this paper re-thinks physically plausible cloth simulation: We propose NeuralClothSim, i.e., a new quasistatic cloth simulator using thin shells, in which surface deformation is encoded in neural network weights in the form of a neural field. Our memory-efficient solver operates on a new continuous coordinate-based surface representation called neural deformation fields (NDFs); it supervises NDF equilibria with the laws of the non-linear Kirchhoff-Love shell theory with a non-linear anisotropic material model. NDFs are adaptive: They 1) allocate their capacity to the deformation details and 2) allow surface state queries at arbitrary spatial resolutions without re-training. We show how to train NeuralClothSim while imposing hard boundary conditions and demonstrate multiple applications, such as material interpolation and simulation editing. The experimental results highlight the effectiveness of our continuous neural formulation.*
 
+## News
+* [2024-TODO] We have released the codebase for NeuralClothSim. 
 
 ## Installation
 Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies
@@ -22,6 +24,7 @@ Clone this repository to `${code_root}`. The following sets up a new conda envir
 ```
 conda create --name neuralclothsim python=3.10
 conda activate neuralclothsim
+
 conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
 conda install -c fvcore -c iopath -c conda-forge fvcore iopath
 conda install pytorch3d -c pytorch3d
@@ -52,15 +55,37 @@ The codebase has the following structure:
 
 ### Running
 For full version, check out train.py, reproduce simulations with
+
+<details>
+<summary><span style="font-weight: bold;">Command line arguments for train.py</span></summary>
+
+
+  #### --source_path / -s
+  Path to the source directory containing a COLMAP or Synthetic NeRF data set.
+
+</details>
+
+#### Napkin
 ```
 python train.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
 python train.py -c config/drape.ini -n drape_linear -m material/linear_1.ini
 python train.py -c config/napkin.ini --expt_name napkin -m material/canvas.ini
-python train.py -c config/napkin_mesh.ini --expt_name napkin_mesh
+```
+
+```
 python train.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
 python train.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/canvas.ini
 python train.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
 python train.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
+```
+
+#### Reference mesh
+```
+python train.py -c config/napkin_mesh.ini --expt_name napkin_mesh
+```
+
+#### Collision
+```
 python train.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
 ```
 
@@ -68,26 +93,39 @@ python train.py -c config/collision.ini -n collision_linear -m material/linear_1
 tensorboard --logdir logs
 ```
 
-<details>
-<summary><span style="font-weight: bold;">Command line arguments for train.py</span></summary>
 
-  #### --source_path / -s
-  Path to the source directory containing a COLMAP or Synthetic NeRF data set.
-
-</details>
 Similarly, replacing `napkin` with `sleeve` or `skirt` will reproduce the corresponding simulations.
 
-### Evaluation
+### Visualisation
 
-To evaluate the trained models, run the following command:
+To visualise the trained models, run the following command:
 ```
 python test.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
 ```
 
+TODO: Share some trained checkpoints
+
+TODO: Add visual result similar to PhysGaussian
+
+## Create Your Own Simulation
+
+Mention the required arguments
+config file
+boundary_condition (not required if collision)
+use exisiting material or create new material
+
+
 ## FAQ
 
 - *I run out of GPU memory, what do I do?* The GPU memory consumption is determined by the number of samples drawn from the reference midsurface. You can reduce the number of samples in the `config/*.ini` file.
- 
+
+## Acknowledgements
+This codebase used lots of source code from:
+
+https://github.com/vsitzmann/siren
+
+We thank the authors of these projects.
+
 ## Citation
 
 If you use this code for your research, please cite:

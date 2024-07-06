@@ -44,9 +44,9 @@ class ReferenceMidSurface():
                 self.boundary_curvilinear_coords = self.curvilinear_coords[args.boundary_condition_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, args.test_spatial_sidelen, tb_writer)
             #self.vertices = self.midsurface(self.curvilinear_coords)[None] #verts# 
-            self.temporal_coords = torch.linspace(0, args.end_time, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.vertices.shape[1], 0)[None]
+            self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.vertices.shape[1], 0)[None]
         else:
-            sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.end_time, args.xi__1_scale, args.xi__2_scale, 'test')
+            sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'test')
             dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
             self.curvilinear_coords, self.temporal_coords = next(iter(dataloader))
             self.vertices = self.midsurface(self.curvilinear_coords)

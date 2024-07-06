@@ -139,7 +139,7 @@ def get_mgrid(sidelen, stratified=False, dim=2):
     return grid_coords
                        
 class GridSampler(Dataset):
-    def __init__(self, spatial_sidelen, temporal_sidelen, time_scale, xi__1_scale, xi__2_scale, mode):
+    def __init__(self, spatial_sidelen, temporal_sidelen, xi__1_scale, xi__2_scale, mode):
         super().__init__()
         self.mode = mode
         self.spatial_sidelen = spatial_sidelen
@@ -147,7 +147,6 @@ class GridSampler(Dataset):
                 
         self.xi__1_scale = xi__1_scale
         self.xi__2_scale = xi__2_scale
-        self.time_scale = time_scale
         if self.mode == 'train':
             self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
             self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)
@@ -163,7 +162,6 @@ class GridSampler(Dataset):
         if self.mode == 'test': 
             curvilinear_coords = self.node_curvilinear_coords.clone()
             temporal_coords = self.node_temporal_coords.clone() 
-            temporal_coords *= self.time_scale
             curvilinear_coords[...,0] *= self.xi__1_scale 
             curvilinear_coords[...,1] *= self.xi__2_scale
         elif self.mode == 'train':            
@@ -175,7 +173,6 @@ class GridSampler(Dataset):
             temporal_coords += t_rand_temporal
             curvilinear_coords += t_rand_spatial
             
-            temporal_coords *= self.time_scale
             curvilinear_coords[...,0] *= self.xi__1_scale
             curvilinear_coords[...,1] *= self.xi__2_scale
             curvilinear_coords.requires_grad_(True)
@@ -185,14 +182,13 @@ class GridSampler(Dataset):
         return curvilinear_coords, temporal_coords            
 
 class MeshSampler(Dataset):
-    def __init__(self, reference_mesh, reference_curvilinear_coords, spatial_sidelen, temporal_sidelen, time_scale):
+    def __init__(self, reference_mesh, reference_curvilinear_coords, spatial_sidelen, temporal_sidelen):
         super().__init__()
         self.reference_mesh = reference_mesh
         self.reference_curvilinear_coords = reference_curvilinear_coords
         self.spatial_sidelen = spatial_sidelen
         self.temporal_sidelen = temporal_sidelen
                 
-        self.time_scale = time_scale
         self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
             
     def __len__(self):
@@ -208,7 +204,6 @@ class MeshSampler(Dataset):
         t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
         temporal_coords += t_rand_temporal
         
-        temporal_coords *= self.time_scale
         curvilinear_coords.requires_grad_(True)
         temporal_coords.requires_grad_(True)
             

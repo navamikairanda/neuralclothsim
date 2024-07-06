@@ -6,16 +6,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_config_parser():
     parser = configargparse.ArgumentParser()
-    parser.add('-c', '--config_filepath', required=False, is_config_file=True, help='config file path')
+    parser.add('-c', '--config_filepath', required=True, is_config_file=True, help='config file path')
     parser.add_argument('-n', '--expt_name', type=str, required=True, help='experiment name; also the name of subdirectory in logging_dir')
 
     # simulation parameters
     parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of reference geometry')
     parser.add_argument('--xi__1_scale', type=float, default=2 * math.pi, help='scale for xi__1')
-    parser.add_argument('--xi__2_scale', type=float, help='scale for xi__2')
+    parser.add_argument('--xi__2_scale', type=float, default=1, help='scale for xi__2')
     parser.add_argument('--boundary_condition_name', type=str, help='name of spatio-temporal boundary condition')
-    parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='gravity acceleration')
-    parser.add_argument('--end_time', type=float, required=True, help='simulation end time')
+    parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
+    parser.add_argument('--end_time', type=float, default=1, help='simulation end time')
     
     parser.add_argument('--reference_geometry_source', type=str, default='assets/meshes/flag.obj', help='source file for reference geometry')
     parser.add_argument('--reference_mlp_n_iterations', type=int, default=5000, help='number of MLP iterations for reference geometry')
@@ -24,7 +24,8 @@ def get_config_parser():
     
     # material parameters
     parser.add('-m', '--material_filepath', is_config_file=True, default='material/canvas.ini', help='name of material')
-    parser.add_argument('--material_type', type=str, help='type of material')
+    parser.add_argument('--material_type', type=str, help='type of material; can be linear or nonlinear')
+    parser.add_argument('--StVK', type=int, help='whether to use StVK or the (full) Clyde material model')
     
     parser.add_argument('--mass_area_density', type=float, default=0.144, help='mass area density or rho in kg/m^2 ')
     parser.add_argument('--thickness', type=float, default=0.0012, help='thickness or tau in meters')
@@ -36,8 +37,7 @@ def get_config_parser():
     parser.add_argument('--a12', type=float, help='a12')
     parser.add_argument('--a22', type=float, help='a22')
     parser.add_argument('--G12', type=float, help='G12')
-    
-    parser.add_argument('--StVK', type=int, help='whether to use StVK or the (full) Clyde material model')
+        
     parser.add_argument('--d', type=int, nargs='+', help='degree')
     parser.add_argument('--mu1', type=float, nargs='+', help='mu1')
     parser.add_argument('--mu2', type=float, nargs='+', help='mu2')
@@ -61,7 +61,7 @@ def get_config_parser():
     parser.add_argument('--train_strong_form_spatial_sidelen', type=int, default=20, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate, at training')
     parser.add_argument('--train_strong_form_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
     parser.add_argument('--lrate', type=float, default=1e-5, help='learning rate')
-    parser.add_argument('--decay_lrate', action='store_true', help='wheter to decay learning rate')
+    parser.add_argument('--decay_lrate', action='store_true', help='whether to decay learning rate')
     parser.add_argument('--lrate_decay_steps', type=int, default=10000, help='learning rate decay steps')
     parser.add_argument('--lrate_decay_rate', type=float, default=0.1, help='learning rate decay rate')    
     parser.add_argument('--n_iterations', type=int, default=10000, help='number of training iterations')
