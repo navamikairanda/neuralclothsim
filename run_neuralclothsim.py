@@ -12,13 +12,28 @@ from reference_geometry import ReferenceGeometry
 from modules import Siren
 from diff_operators import jacobian
 from internal_energy import compute_energy
-from test import test
 from logger import get_logger
 from config_parser import get_config_parser
 from config_parser import device
 from reference_midsurface import ReferenceMidSurface
 from modules import compute_sdf
+from file_io import save_meshes
+
+def test(ndf, test_temporal_sidelen, meshes_dir, images_dir, i, tex_image_file, reference_midsurface, tb_writer):
     
+    #test_deformations = ndf(reference_midsurface.curvilinear_coords.repeat(1, test_temporal_sidelen, 1), reference_midsurface.mesh_temporal_coords)
+    test_deformations = ndf(reference_midsurface.curvilinear_coords.repeat(1, test_temporal_sidelen, 1), reference_midsurface.temporal_coords)
+    test_deformed_positions = reference_midsurface.vertices.repeat(1, test_temporal_sidelen, 1) + test_deformations
+    '''
+    sdf, normal = compute_sdf(test_deformed_positions)
+    eps = 0.0
+    outward_displacement = torch.einsum('ij,ijk->ijk', relu(eps - sdf), normal)#relunn.GELU()
+    test_deformed_positions = test_deformed_positions + outward_displacement
+    '''
+    #test_deformed_positions = reference_midsurface.midsurface(reference_midsurface.curvilinear_coords).repeat(1, test_temporal_sidelen, 1) + test_deformations
+    tb_writer.add_mesh('simulated_states', test_deformed_positions.view(test_temporal_sidelen, -1, 3), faces=reference_midsurface.faces.repeat(test_temporal_sidelen, 1, 1), global_step=i)
+    save_meshes(test_deformed_positions, reference_midsurface.faces, meshes_dir, i, test_temporal_sidelen, reference_midsurface.curvilinear_coords) 
+        
 def train():  
     relu = nn.ReLU()
     eps = 0.00#0.001

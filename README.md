@@ -8,9 +8,10 @@
 [Vladislav Golyanik](https://people.mpi-inf.mpg.de/~golyanik/) <br>
 Max Planck Institute for Informatics <br>
 
+### !!!UNDER CONSTRUCTION!! PLEASE WAIT FOR THIS MESSAGE TO GO AWAY BEFORE YOU USE THE REPO!!! ###
 This repository contains the official implementation of the paper "NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory".
 
-[<img src="https://i3.ytimg.com/vi/z-7MBiAi7SM/maxresdefault.jpg" width="500">](https://www.youtube.com/watch?v=z-7MBiAi7SM)
+[<img src="assets/thumbnail.PNG" width="500">](https://www.youtube.com/watch?v=z-7MBiAi7SM)
 
 ## What is NeuralClothSim?
 *Despite existing 3D cloth simulators producing realistic results, they predominantly operate on discrete surface representations (e.g. points and meshes) with a fixed spatial resolution, which often leads to large memory consumption and resolution-dependent simulations. Moreover, back-propagating gradients through the existing solvers is difficult, and they hence cannot be easily integrated into modern neural architectures. In response, this paper re-thinks physically plausible cloth simulation: We propose NeuralClothSim, i.e., a new quasistatic cloth simulator using thin shells, in which surface deformation is encoded in neural network weights in the form of a neural field. Our memory-efficient solver operates on a new continuous coordinate-based surface representation called neural deformation fields (NDFs); it supervises NDF equilibria with the laws of the non-linear Kirchhoff-Love shell theory with a non-linear anisotropic material model. NDFs are adaptive: They 1) allocate their capacity to the deformation details and 2) allow surface state queries at arbitrary spatial resolutions without re-training. We show how to train NeuralClothSim while imposing hard boundary conditions and demonstrate multiple applications, such as material interpolation and simulation editing. The experimental results highlight the effectiveness of our continuous neural formulation.*
@@ -44,8 +45,8 @@ conda activate neuralclothsim
 
 The codebase has the following structure:
 
-* Simulation configurations are in `config/` directory. For example, `config/drape.ini` contains the following:
-* Material configutations are in `material/` directory. For example, `material/canvas.ini` contains the following: . Material model is defined in `material/material.py`.
+* Simulation configurations are defined in the `config/` directory. For example, `config/drape.ini` contains the following:
+* Material configutations are defined in the `material/` directory. For example, `material/canvas.ini` contains the following: . Material model is defined in `material/material.py`.
 * Training and testing scripts are in `train.py` and `test.py` respectively.
 * `modules.py` contains the implementation of the neural deformation field and the boundary conditios.
 * `internal_energy.py` contains the implementation of the internal energy of the cloth.
@@ -117,7 +118,7 @@ use exisiting material or create new material
 
 ## FAQ
 
-- *I run out of GPU memory, what do I do?* The GPU memory consumption is determined by the number of samples drawn from the reference midsurface. You can reduce the number of samples in the `config/*.ini` file.
+- *I am running out of GPU memory, what do I do?* The GPU memory consumption is determined by the number of samples drawn from the reference midsurface. You can reduce the number of samples in the `config/*.ini` file.
 
 ## Acknowledgements
 This codebase used lots of source code from:
