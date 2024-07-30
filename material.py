@@ -1,5 +1,3 @@
-import torch
-
 class Material():
     def __init__(self, mass_area_density, thickness):
         self.thickness = thickness

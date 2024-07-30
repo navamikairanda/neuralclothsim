@@ -1,30 +1,11 @@
 import os
-import numpy as np
 import imageio
 import natsort
 import torch
 from pytorch3d.io import save_obj, load_obj
 from pytorch3d.structures import Pointclouds
 from pytorch3d.structures import Meshes, join_meshes_as_batch
-from config_parser import device
-
-to8b = lambda x : (255 * np.clip(x, 0, 1)).astype(np.uint8)
-
-def save_images(images, images_dir, i, save_video=True, image_prefix='', start_frame_idx=0):
-    images_dir = os.path.join(images_dir, f'{i}')
-    os.makedirs(images_dir, exist_ok=True)
-    images = images.detach().cpu().numpy()
-    for i, f in enumerate(images):
-        imageio.imwrite(os.path.join(images_dir, image_prefix + f'{start_frame_idx + i:03d}.png'), to8b(f)) 
-    if save_video:
-        imageio.mimwrite(os.path.join(images_dir, os.path.basename(images_dir) + '.mp4'), to8b(images), fps=5, quality=8, macro_block_size = 8)
-    
-def read_images(img_dir, start_frame_idx=1, n_imgs=None):
-    img_files = [os.path.join(img_dir, f) for f in natsort.natsorted(os.listdir(img_dir)) if f.endswith('png')]
-    img_files = img_files[start_frame_idx-1:][:n_imgs]
-    images = np.array([imageio.imread(f)/255. for f in img_files], dtype='float32')
-    images = torch.tensor(images, device=device)
-    return images
+from config_parser import device 
 
 def save_meshes(positions, faces, meshes_dir, i, temporal_sidelen, verts_uvs=None, tex_image_file=None):
     n_vertices = positions.shape[1] // temporal_sidelen

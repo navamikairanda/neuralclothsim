@@ -10,7 +10,6 @@ from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler
 from reference_geometry import ReferenceGeometry
 from modules import Siren
-from diff_operators import jacobian
 from internal_energy import compute_energy
 from logger import get_logger
 from config_parser import get_config_parser
@@ -19,7 +18,7 @@ from reference_midsurface import ReferenceMidSurface
 from modules import compute_sdf
 from file_io import save_meshes
 
-def test(ndf, test_temporal_sidelen, meshes_dir, images_dir, i, tex_image_file, reference_midsurface, tb_writer):
+def test(ndf, test_temporal_sidelen, meshes_dir, i, reference_midsurface, tb_writer):
     
     #test_deformations = ndf(reference_midsurface.curvilinear_coords.repeat(1, test_temporal_sidelen, 1), reference_midsurface.mesh_temporal_coords)
     test_deformations = ndf(reference_midsurface.curvilinear_coords.repeat(1, test_temporal_sidelen, 1), reference_midsurface.temporal_coords)
@@ -43,7 +42,7 @@ def train():
     images_dir = os.path.join(log_dir, 'images')
     weights_dir = os.path.join(log_dir, 'weights')
         
-    for dir in [log_dir, weights_dir]: #[log_dir, meshes_dir, images_dir, weights_dir]
+    for dir in [log_dir, weights_dir]:
         os.makedirs(dir, exist_ok=True)
     
     tb_writer = SummaryWriter(log_dir)
@@ -73,7 +72,7 @@ def train():
         global_step = 0
     
     if args.test_only:
-        test(ndf, args.test_temporal_sidelen, meshes_dir, images_dir, f'{global_step}', args.texture_image_file, reference_midsurface, tb_writer)
+        test(ndf, args.test_temporal_sidelen, meshes_dir, f'{global_step}', reference_midsurface, tb_writer)
         return
     
     if args.material_type == 'linear':            
@@ -128,7 +127,7 @@ def train():
             }, os.path.join(weights_dir, f'{i:06d}.tar'))
             
         if not i % args.i_test:            
-            test(ndf, args.test_temporal_sidelen, meshes_dir, images_dir, i, args.texture_image_file, reference_midsurface, tb_writer)
+            test(ndf, args.test_temporal_sidelen, meshes_dir, i, reference_midsurface, tb_writer)
     tb_writer.flush()
     tb_writer.close()
 

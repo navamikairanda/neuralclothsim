@@ -82,7 +82,6 @@ def get_config_parser():
     parser.add_argument('--test_only', action='store_true', help='evaluate NDF from i_ckpt and save resulting meshes and videos')
     parser.add_argument('--test_spatial_sidelen', type=int, default=30, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate, for evaluation')
     parser.add_argument('--test_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
-    parser.add_argument('--texture_image_file', type=str, default='assets/texture.jpg', help='texture image file')
     
     # reload options
     parser.add_argument("--i_ckpt", type=int, help='weight checkpoint to reload')
