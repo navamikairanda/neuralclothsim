@@ -45,20 +45,19 @@ conda activate neuralclothsim
 
 The codebase has the following structure:
 
-* Simulation configurations are defined in the `config/` directory. For example, `config/drape.ini` contains the following:
-* Material configutations are defined in the `material/` directory. For example, `material/canvas.ini` contains the following: . Material model is defined in `material/material.py`.
-* Training and testing scripts are in `train.py` and `test.py` respectively.
-* `modules.py` contains the implementation of the neural deformation field and the boundary conditios.
+* Simulation configurations are defined in the `config/` directory. They include the scene description such as reference geometry, boundary condition, and external forces, as well as optimization configuration (e.g. learnign rate) and testing configurations such as sampling rate. 
+* Material configutations are defined in the `material/` directory. Material models (linear, nonlinear, StVK, Clyde model etc..) are defined in `material/material.py`.
+* Starting point for the running is `run_neuralclothsim.py` and includes both training and testing scripts.
+* `modules.py` contains the implementation of the neural deformation field and the boundary conditions.
 * `internal_energy.py` contains the implementation of the internal energy of the cloth.
-* `reference_midsurface.py` and `reference_geometry.py`contains the implementation of the reference midsurface of the cloth.
-* `sampler.py` contains the implementation of the sampler for the cloth.
-* `utils.py` contains the implementation of the utility functions.
+* `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the cloth and the derived differential quantities.
+* `sampler.py` contains the implementation of the sampler (uniform and mesh-based) for the cloth.
 
 ### Running
-For full version, check out train.py, reproduce simulations with
+For full version, check out run_neuralclothsim.py, reproduce simulations with
 
 <details>
-<summary><span style="font-weight: bold;">Command line arguments for train.py</span></summary>
+<summary><span style="font-weight: bold;">Command line arguments for run_neuralclothsim.py</span></summary>
 
 
   #### --source_path / -s
@@ -68,26 +67,26 @@ For full version, check out train.py, reproduce simulations with
 
 #### Napkin
 ```
-python train.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
-python train.py -c config/drape.ini -n drape_linear -m material/linear_1.ini
-python train.py -c config/napkin.ini --expt_name napkin -m material/canvas.ini
+python run_neuralclothsim.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
+python run_neuralclothsim.py -c config/drape.ini -n drape_linear -m material/linear_1.ini
+python run_neuralclothsim.py -c config/napkin.ini --expt_name napkin -m material/canvas.ini
 ```
 
 ```
-python train.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
-python train.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/canvas.ini
-python train.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
-python train.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
+python run_neuralclothsim.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
+python run_neuralclothsim.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/canvas.ini
+python run_neuralclothsim.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
+python run_neuralclothsim.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
 ```
 
 #### Reference mesh
 ```
-python train.py -c config/napkin_mesh.ini --expt_name napkin_mesh
+python run_neuralclothsim.py -c config/napkin_mesh.ini --expt_name napkin_mesh
 ```
 
 #### Collision
 ```
-python train.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
+python run_neuralclothsim.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
 ```
 
 ```
