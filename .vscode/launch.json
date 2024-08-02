@@ -73,8 +73,8 @@
                 "config/napkin_mesh.ini",
                 "-n", 
                 "napkin_mesh_debug",
-                "--reference_mlp_n_iterations", 
-                "100", 
+                //"--reference_mlp_n_iterations", 
+                //"100", 
                 "-m",
                 "material/linear_1.ini"
             ]

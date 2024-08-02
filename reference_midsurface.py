@@ -43,7 +43,7 @@ class ReferenceMidSurface():
             if args.boundary_condition_name == 'mesh_vertices':
                 self.boundary_curvilinear_coords = self.curvilinear_coords[args.boundary_condition_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, args.test_spatial_sidelen, tb_writer)
-            #self.vertices = self.midsurface(self.curvilinear_coords)[None] #verts# 
+            self.vertices = self.midsurface(self.curvilinear_coords)[None] #verts# 
             self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.vertices.shape[1], 0)[None]
         else:
             sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'test')
@@ -61,13 +61,15 @@ class ReferenceMidSurface():
         self.reference_mlp = SirenReference(first_omega_0=5., hidden_omega_0=5.).to(device)
         #self.reference_mlp = GELUReference(in_features=2, hidden_features=512, out_features=3, hidden_layers=3).to(device)
         reference_optimizer = torch.optim.Adam(lr=reference_mlp_lrate, params=self.reference_mlp.parameters())
-        loss_fn = nn.L1Loss()   #nn.MSELoss()         
+        loss_fn = nn.L1Loss() #nn.MSELoss()
         for i in trange(reference_mlp_n_iterations):
             reference_optimizer.zero_grad()
-            #with torch.no_grad(): 
-            #    verts, uvs = sample_points_from_meshes(self.template_mesh, self.curvilinear_coords, 5000)
-            fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
-            loss = loss_fn(fitted_verts, self.vertices)
+            with torch.no_grad(): 
+                verts, uvs = sample_points_from_meshes(self.template_mesh, self.curvilinear_coords, 400)
+            #fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
+            #loss = loss_fn(fitted_verts, self.vertices)
+            fitted_verts = self.reference_mlp(uvs)
+            loss = loss_fn(fitted_verts, verts)
             loss.backward()
             reference_optimizer.step()
             tb_writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
