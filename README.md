@@ -109,6 +109,7 @@ TODO: Add visual result similar to PhysGaussian
 
 ## Create Your Own Simulation
 
+Reproducible results by setting the random seed
 Mention the required arguments
 config file
 boundary_condition (not required if collision)

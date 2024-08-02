@@ -17,6 +17,7 @@ from config_parser import device
 from reference_midsurface import ReferenceMidSurface
 from modules import compute_sdf
 from file_io import save_meshes
+#torch.manual_seed(2) #Set seed for reproducible results
 
 def test(ndf, test_temporal_sidelen, meshes_dir, i, reference_midsurface, tb_writer):
     
@@ -39,7 +40,6 @@ def train():
     args = get_config_parser().parse_args()
     log_dir = os.path.join(args.logging_dir, args.expt_name)
     meshes_dir = os.path.join(log_dir, 'meshes')   
-    images_dir = os.path.join(log_dir, 'images')
     weights_dir = os.path.join(log_dir, 'weights')
         
     for dir in [log_dir, weights_dir]:

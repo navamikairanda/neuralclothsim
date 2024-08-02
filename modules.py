@@ -71,6 +71,8 @@ class Siren(nn.Module):
             top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.xi__2_scale) ** 2)/boundary_support)
             R_top = 0.2
             top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_coords * math.pi/2) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_coords * math.pi/2) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
+        elif self.boundary_condition_name == 'center':
+            center_point = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.xi__1_scale) ** 2 + (curvilinear_coords[...,1:2] - 0.7 * self.xi__2_scale) ** 2)/boundary_support)
         elif self.boundary_condition_name == 'top_left_top_right_drape':
             top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.xi__1_scale) ** 2)/0.01)
             top_right_corner = torch.exp(-((curvilinear_coords[...,0:1] - self.xi__1_scale) ** 2 + (curvilinear_coords[...,1:2] - self.xi__2_scale) ** 2)/0.01)
@@ -96,6 +98,8 @@ class Siren(nn.Module):
             output = output * (1 - top_rim) #* initial_condition
         elif self.boundary_condition_name == 'top_rim_torsion':
             output = output * (1 - top_rim) * initial_condition + top_rim_displacement * top_rim
+        elif self.boundary_condition_name == 'center':
+            output = output * (1 - center_point)
         elif self.boundary_condition_name == 'top_left_top_right_drape':
             #output = output * (1 - top_left_corner) * (1 - top_right_corner) * initial_condition + corner_displacement * top_left_corner - corner_displacement * top_right_corner
             output = output * (1 - top_left_corner) * (1 - top_right_corner) + corner_displacement * top_left_corner - corner_displacement * top_right_corner
