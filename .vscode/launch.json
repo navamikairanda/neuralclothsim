@@ -98,6 +98,54 @@
             ]
         },
         {
+            "name": "arcsim_disk",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/arcsim_disk.ini",
+                "-n", 
+                "arcsim_disk_debug", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "arcsim_0003_00",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/arcsim_0003_00.ini",
+                "-n", 
+                "arcsim_0003_00debug", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "arcsim_tshirt_no_sleeves",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/tshirt_no_sleeves.ini",
+                "-n", 
+                "arcsim_tshirt_no_sleeves_debug", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
             "name": "irregular_mesh",
             "type": "debugpy",
             "request": "launch",

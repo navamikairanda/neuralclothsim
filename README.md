@@ -119,6 +119,7 @@ use exisiting material or create new material
 ## FAQ
 
 - *I am running out of GPU memory, what do I do?* The GPU memory consumption is determined by the number of samples drawn from the reference midsurface. You can reduce the number of samples in the `config/*.ini` file.
+- *How did we generate UV map for single panel (piece of cloth rather than a garment)?* Blender step; Import mesh, UV Editing, Edit model, UV unwrap (angle-based), export mesh as .obj with uv. Delete .mtl file. Veryify using Set Texture
 
 ## Acknowledgements
 This codebase used lots of source code from:

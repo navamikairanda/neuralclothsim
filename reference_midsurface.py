@@ -59,11 +59,11 @@ class ReferenceMidSurface():
         #ReferenceGeometry(self.curvilinear_coords[None], args.train_temporal_sidelen, 0, self, tb_writer, debug_ref_geometry=True)
         
     def fit_reference_mlp(self, reference_mlp_lrate, reference_mlp_n_iterations, spatial_sidelen, tb_writer):
-        self.reference_mlp = SirenReference(first_omega_0=5., hidden_omega_0=5.).to(device)
-        #self.reference_mlp = GELUReference(in_features=2, hidden_features=512, out_features=3, hidden_layers=3).to(device)
+        #self.reference_mlp = SirenReference(first_omega_0=5., hidden_omega_0=5.).to(device)
+        self.reference_mlp = GELUReference(in_features=2, hidden_features=512, out_features=3, hidden_layers=5).to(device)
         reference_optimizer = torch.optim.Adam(lr=reference_mlp_lrate, params=self.reference_mlp.parameters())
         loss_fn = nn.L1Loss() #nn.MSELoss()
-        
+        '''
         vertices_matrix = self.vertices.view(spatial_sidelen, spatial_sidelen, 3)   
         vertices_forward_diff_2 = vertices_matrix.diff(dim=1)
         vertices_central_diff_2 = F.pad(vertices_forward_diff_2, (0, 0, 0, 1), mode='constant') + F.pad(vertices_forward_diff_2, (0, 0, 1, 0), mode='constant')
@@ -85,18 +85,19 @@ class ReferenceMidSurface():
         
         #tb_writer.add_figure('metric_tensor_finite_difference', get_plot_single_tensor(a_2_2, spatial_sidelen))
         tb_writer.add_figure('metric_tensor_finite_difference', get_plot_grid_tensor(a_1_1, a_1_2, a_2_1, a_2_2, spatial_sidelen))
-        
+        '''
         self.curvilinear_coords.requires_grad_(True)
         for i in trange(reference_mlp_n_iterations):
             reference_optimizer.zero_grad()
             with torch.no_grad(): 
                 verts, uvs = sample_points_from_meshes(self.template_mesh, self.curvilinear_coords, 400)
             fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
-            #loss = loss_fn(fitted_verts, self.vertices)
-            base_vectors = jacobian(fitted_verts, self.curvilinear_coords)[0]
+            #loss = loss_fn(fitted_verts, self.vertices)            
             #fitted_verts = self.reference_mlp(uvs)
-            loss = loss_fn(self.reference_mlp(uvs), verts) + loss_fn(base_vectors[...,0], fd_a_1) + loss_fn(base_vectors[...,1], fd_a_2)
-            #loss_fn(fitted_verts, self.vertices[None])
+            loss = loss_fn(self.reference_mlp(uvs), verts)
+            #base_vectors = jacobian(fitted_verts, self.curvilinear_coords)[0]
+            #loss += loss_fn(base_vectors[...,0], fd_a_1) + loss_fn(base_vectors[...,1], fd_a_2)
+            #loss = loss_fn(fitted_verts, self.vertices[None])
             loss.backward()
             reference_optimizer.step()
             tb_writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
