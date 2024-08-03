@@ -81,7 +81,7 @@ def train():
         material = NonLinearMaterial(args)
     external_load = torch.tensor(args.gravity_acceleration, device=device).expand(1, args.train_temporal_sidelen * args.train_spatial_sidelen**2, 3) * material.mass_area_density #* material.thickness
 
-    if False: #args.reference_geometry_name in ['mesh']:
+    if args.reference_geometry_name in ['mesh']: #False: 
         sampler = MeshSampler(reference_midsurface.template_mesh, reference_midsurface.curvilinear_coords, args.train_spatial_sidelen, args.train_temporal_sidelen)
     else:
         sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'train')

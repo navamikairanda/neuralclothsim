@@ -78,7 +78,7 @@ class ReferenceMidSurface():
         coords_central_diff_1 = F.pad(coords_forward_diff_1, (0, 0, 0, 0, 0, 1), mode='constant') + F.pad(coords_forward_diff_1, (0, 0, 0, 0, 1, 0), mode='constant')
         a_1 = vertices_central_diff_1 / coords_central_diff_1[...,:1]
         fd_a_1 = a_1.view(1, spatial_sidelen * spatial_sidelen, 3)
-        fd_a_2 = a_2.view(spatial_sidelen * spatial_sidelen, 3)
+        fd_a_2 = a_2.view(1, spatial_sidelen * spatial_sidelen, 3)
         a_1_1 = torch.einsum('ijk,ijk->ij', a_1, a_1)
         a_1_2 = torch.einsum('ijk,ijk->ij', a_1, a_2)
         a_2_1 = torch.einsum('ijk,ijk->ij', a_2, a_1)
@@ -89,16 +89,14 @@ class ReferenceMidSurface():
         self.curvilinear_coords.requires_grad_(True)
         for i in trange(reference_mlp_n_iterations):
             reference_optimizer.zero_grad()
-            #with torch.no_grad(): 
-            #    verts, uvs = sample_points_from_meshes(self.template_mesh, self.curvilinear_coords, 400)
+            with torch.no_grad(): 
+                verts, uvs = sample_points_from_meshes(self.template_mesh, self.curvilinear_coords, 400)
             fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
             #loss = loss_fn(fitted_verts, self.vertices)
             base_vectors = jacobian(fitted_verts, self.curvilinear_coords)[0]
-            #mlp_a_1 = base_vectors[...,0]#.view(spatial_sidelen, spatial_sidelen, 3)
-            #mlp_a_2 = base_vectors[...,1]#.view(spatial_sidelen, spatial_sidelen, 3)
             #fitted_verts = self.reference_mlp(uvs)
-            loss = loss_fn(fitted_verts, self.vertices[None]) + loss_fn(base_vectors[...,0], fd_a_1) #+ loss_fn(mlp_a_1, torch.zeros_like(mlp_a_1))
-            #loss_fn(mlp_a_1, fd_a_1) + loss_fn(mlp_a_2, fd_a_2)
+            loss = loss_fn(self.reference_mlp(uvs), verts) + loss_fn(base_vectors[...,0], fd_a_1) + loss_fn(base_vectors[...,1], fd_a_2)
+            #loss_fn(fitted_verts, self.vertices[None])
             loss.backward()
             reference_optimizer.step()
             tb_writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
