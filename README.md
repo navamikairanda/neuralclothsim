@@ -107,6 +107,8 @@ TODO: Share some trained checkpoints
 
 TODO: Add visual result similar to PhysGaussian
 
+Add nonboundary constraint results
+
 ## Create Your Own Simulation
 
 Reproducible results by setting the random seed

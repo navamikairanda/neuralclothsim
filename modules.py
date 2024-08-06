@@ -99,7 +99,7 @@ class Siren(nn.Module):
         elif self.boundary_condition_name == 'top_rim_torsion':
             output = output * (1 - top_rim) * initial_condition + top_rim_displacement * top_rim
         elif self.boundary_condition_name == 'center':
-            output = output * (1 - center_point)
+            output = output * (1 - center_point) * initial_condition
         elif self.boundary_condition_name == 'top_left_top_right_drape':
             #output = output * (1 - top_left_corner) * (1 - top_right_corner) * initial_condition + corner_displacement * top_left_corner - corner_displacement * top_right_corner
             output = output * (1 - top_left_corner) * (1 - top_right_corner) + corner_displacement * top_left_corner - corner_displacement * top_right_corner

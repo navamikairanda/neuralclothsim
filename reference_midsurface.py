@@ -106,11 +106,12 @@ class ReferenceMidSurface():
         xi__1 = curvilinear_coords[...,0] 
         xi__2 = curvilinear_coords[...,1]
         if self.reference_geometry_name == 'rectangle':
-            midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
+            #midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
             #midsurface_positions = torch.stack([xi__1 - 0.5, xi__2 - 0.5, 1.6 + 0.* (xi__1**2 - xi__2**2)], dim=2)            
             #midsurface_positions = torch.stack([xi__1 - 0.5, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2 - 0.5], dim=2)
             #midsurface_positions = torch.stack([xi__1, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision sphere example
-            #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example        
+            #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example   
+            midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #non-boundary constraint
         elif self.reference_geometry_name == 'cylinder':
             R = 0.25
             midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
