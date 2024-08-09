@@ -84,7 +84,7 @@ def sample_points_from_meshes(
     c = v2[sample_face_idxs]
     samples_xyz[meshes.valid] = w0[:, :, None] * a + w1[:, :, None] * b + w2[:, :, None] * c
     
-    face_uvs = uvs[faces]
+    face_uvs = uvs[meshes.textures.faces_uvs_list()[0]]
     uv0, uv1, uv2 = face_uvs[:, 0], face_uvs[:, 1], face_uvs[:, 2]
     # Use the barycentric coords to get a point on each sampled face.
     a_uv = uv0[sample_face_idxs]  # (N, num_samples, 3)

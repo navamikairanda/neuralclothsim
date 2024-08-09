@@ -13,7 +13,7 @@ from diff_operators import jacobian
 from modules import SirenReference, GELUReference
 from sampler import sample_points_from_meshes
 from pytorch3d.structures import Meshes
-from reference_geometry import ReferenceGeometry
+from pytorch3d.renderer.mesh.textures import TexturesUV
 from plot_helper import get_plot_grid_tensor
 
 def generate_mesh_topology(spatial_sidelen):
@@ -38,25 +38,25 @@ class ReferenceMidSurface():
         self.boundary_curvilinear_coords = None
         if args.reference_geometry_name in ['mesh']:
             self.vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
-            self.template_mesh = Meshes(verts=[self.vertices], faces=[faces.verts_idx]).cuda()
+            texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
+            self.template_mesh = Meshes(verts=[self.vertices], faces=[faces.verts_idx], textures=texture).to(device)
             self.curvilinear_coords = aux.verts_uvs
             self.faces = faces.verts_idx
+            self.faces_uvs = faces.textures_idx
             if args.boundary_condition_name == 'mesh_vertices':
                 self.boundary_curvilinear_coords = self.curvilinear_coords[args.boundary_condition_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, args.test_spatial_sidelen, tb_writer)
-            self.vertices = self.midsurface(self.curvilinear_coords)[None] #verts# 
+            self.vertices = self.midsurface(self.curvilinear_coords)[None]
             self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.vertices.shape[1], 0)[None]
         else:
             sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'test')
             dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
             self.curvilinear_coords, self.temporal_coords = next(iter(dataloader))
             self.vertices = self.midsurface(self.curvilinear_coords)
-            self.faces = torch.tensor(generate_mesh_topology(args.test_spatial_sidelen), device=device)
+            self.faces = self.faces_uvs = torch.tensor(generate_mesh_topology(args.test_spatial_sidelen), device=device)
             self.curvilinear_coords = self.curvilinear_coords[0]
         tb_writer.add_mesh('reference_state_fitted', self.vertices, faces=self.faces[None])
-        save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state_fitted.obj'), self.vertices[0], self.faces, verts_uvs=self.curvilinear_coords, faces_uvs=self.faces)
-        #self.curvilinear_coords.requires_grad_(True)
-        #ReferenceGeometry(self.curvilinear_coords[None], args.train_temporal_sidelen, 0, self, tb_writer, debug_ref_geometry=True)
+        save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state_fitted.obj'), self.vertices[0], self.faces_uvs, verts_uvs=self.curvilinear_coords, faces_uvs=self.faces_uvs)
         
     def fit_reference_mlp(self, reference_mlp_lrate, reference_mlp_n_iterations, spatial_sidelen, tb_writer):
         #self.reference_mlp = SirenReference(first_omega_0=5., hidden_omega_0=5.).to(device)
@@ -91,7 +91,8 @@ class ReferenceMidSurface():
             reference_optimizer.zero_grad()
             with torch.no_grad(): 
                 verts, uvs = sample_points_from_meshes(self.template_mesh, self.curvilinear_coords, 400)
-            fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
+            #fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
+            #fitted_verts = self.reference_mlp(self.curvilinear_coords)
             #loss = loss_fn(fitted_verts, self.vertices)            
             #fitted_verts = self.reference_mlp(uvs)
             loss = loss_fn(self.reference_mlp(uvs), verts)

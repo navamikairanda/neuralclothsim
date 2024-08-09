@@ -114,6 +114,22 @@
             ]
         },
         {
+            "name": "arcsim_disk_15k",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/arcsim_disk_15k.ini",
+                "-n", 
+                "arcsim_disk_15k_debug", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
             "name": "arcsim_0003_00",
             "type": "debugpy",
             "request": "launch",
