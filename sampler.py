@@ -3,18 +3,13 @@ import numpy as np
 from torch.utils.data import Dataset
 from config_parser import device
 
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+# Parts of the code borrowed from Meta Platforms, Inc.
 from typing import Tuple, Union
 from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals
 from pytorch3d.ops.packed_to_padded import packed_to_padded
 
 def sample_points_from_meshes(
     meshes,
-    uvs,
     num_samples: int = 10000
 ) -> Union[
     torch.Tensor,
@@ -36,8 +31,8 @@ def sample_points_from_meshes(
         - **samples_xyz**: FloatTensor of shape (N, num_samples, 3) giving the
           coordinates of sampled points for each mesh in the batch. For empty
           meshes the corresponding row in the samples array will be filled with 0.
-        - **samples_uv**: FloatTensor of shape (N, num_samples, 3) giving a uv vector
-          to each sampled point. For empty meshes the corresponding row in the normals array will
+        - **samples_uv**: FloatTensor of shape (N, num_samples, 2) giving the uv coodinates
+          for each sampled point. For empty meshes the corresponding row in the array will
           be filled with 0.
     """
     if meshes.isempty():
@@ -84,14 +79,16 @@ def sample_points_from_meshes(
     c = v2[sample_face_idxs]
     samples_xyz[meshes.valid] = w0[:, :, None] * a + w1[:, :, None] * b + w2[:, :, None] * c
     
-    face_uvs = uvs[meshes.textures.faces_uvs_list()[0]]
+    face_uvs = meshes.textures.verts_uvs_padded()[0][meshes.textures.faces_uvs_padded()[0]]
     uv0, uv1, uv2 = face_uvs[:, 0], face_uvs[:, 1], face_uvs[:, 2]
-    # Use the barycentric coords to get a point on each sampled face.
+    
+    # Use the barycentric coords to get the uv coodinate for the samepled point.
     a_uv = uv0[sample_face_idxs]  # (N, num_samples, 3)
     b_uv = uv1[sample_face_idxs]
     c_uv = uv2[sample_face_idxs]
     samples_uv = torch.zeros((num_meshes, num_samples, 2), device=meshes.device)
-    samples_uv[meshes.valid] = w0[:, :, None] * a_uv + w1[:, :, None] * b_uv + w2[:, :, None] * c_uv    
+    samples_uv[meshes.valid] = w0[:, :, None] * a_uv + w1[:, :, None] * b_uv + w2[:, :, None] * c_uv
+    
     return samples_xyz, samples_uv
 
 def _rand_barycentric_coords(
@@ -182,11 +179,11 @@ class GridSampler(Dataset):
         return curvilinear_coords, temporal_coords            
 
 class MeshSampler(Dataset):
-    def __init__(self, reference_mesh, reference_curvilinear_coords, spatial_sidelen, temporal_sidelen):
+    def __init__(self, reference_mesh, reference_curvilinear_coords, n_samples, temporal_sidelen):
         super().__init__()
         self.reference_mesh = reference_mesh
         self.reference_curvilinear_coords = reference_curvilinear_coords
-        self.spatial_sidelen = spatial_sidelen
+        self.n_samples = n_samples
         self.temporal_sidelen = temporal_sidelen
                 
         self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
@@ -197,7 +194,7 @@ class MeshSampler(Dataset):
     def __getitem__(self, idx):    
         if idx > 0: raise IndexError
 
-        curvilinear_coords = sample_points_from_meshes(self.reference_mesh, self.reference_curvilinear_coords, self.spatial_sidelen**2)[1][0]
+        curvilinear_coords = sample_points_from_meshes(self.reference_mesh, self.n_samples)[1][0]
         
         temporal_coords = self.cell_temporal_coords.clone() 
         
@@ -207,5 +204,5 @@ class MeshSampler(Dataset):
         curvilinear_coords.requires_grad_(True)
         temporal_coords.requires_grad_(True)
             
-        temporal_coords = temporal_coords.repeat_interleave(self.spatial_sidelen**2, 0)        
+        temporal_coords = temporal_coords.repeat_interleave(self.n_samples, 0)        
         return curvilinear_coords, temporal_coords            

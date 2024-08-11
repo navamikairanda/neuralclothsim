@@ -56,10 +56,9 @@ def get_config_parser():
     parser.add_argument('--E_12_max', type=float, help='E_12_max')
     
     # training options
-    parser.add_argument('--train_spatial_sidelen', type=int, default=20, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate, at training')
+    parser.add_argument('--train_spatial_sidelen', type=int, default=20, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate used for training when reference geometry is an analytical surface')
+    parser.add_argument('--train_n_mesh_samples', type=int, default=100, help='number of samples used for training when reference geometry is a mesh')
     parser.add_argument('--train_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
-    parser.add_argument('--train_strong_form_spatial_sidelen', type=int, default=20, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate, at training')
-    parser.add_argument('--train_strong_form_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
     parser.add_argument('--lrate', type=float, default=1e-5, help='learning rate')
     parser.add_argument('--decay_lrate', action='store_true', help='whether to decay learning rate')
     parser.add_argument('--lrate_decay_steps', type=int, default=10000, help='learning rate decay steps')
@@ -69,6 +68,7 @@ def get_config_parser():
     parser.add_argument('--initial_deformations_loss_weight', type=float, default=1.0, help='weight for initial deformations loss')
     parser.add_argument('--initial_velocity_loss_weight', type=float, default=1.0, help='weight for initial velocity loss')
     parser.add_argument('--initial_acceleration_loss_weight', type=float, default=1.0, help='weight for initial acceleration loss')
+    parser.add_argument('--debug', action='store_true', help='whether to run NeuralClothSim in debug mode; this will plot the reference geometric quantities (metric and curvature tensor) and the strains due to deformation (membrane, bending, orthotropic, and strain energy density) to TensorBoard')
     
     # logging/saving options
     parser.add_argument('--logging_dir', type=str, default='logs', help='root directory for logging')
@@ -80,7 +80,8 @@ def get_config_parser():
     
     # testing options
     parser.add_argument('--test_only', action='store_true', help='evaluate NDF from i_ckpt and save resulting meshes and videos')
-    parser.add_argument('--test_spatial_sidelen', type=int, default=30, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate, for evaluation')
+    parser.add_argument('--test_spatial_sidelen', type=int, default=30, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate used for evaluation when reference geometry is an analytical surface')
+    # when reference geometry is a mesh, the same vertices and faces are used for evaluation as the input mesh
     parser.add_argument('--test_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
     
     # reload options

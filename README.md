@@ -124,11 +124,11 @@ use exisiting material or create new material
 - *How did we generate UV map for single panel (piece of cloth rather than a garment)?* Blender step; Import mesh, UV Editing, Edit model, UV unwrap (angle-based), export mesh as .obj with uv. Delete .mtl file. Veryify using Set Texture
 
 ## Acknowledgements
-This codebase used lots of source code from:
+This repository uses some of the source code from:
 
 https://github.com/vsitzmann/siren
 
-We thank the authors of these projects.
+We thank the authors of this project.
 
 ## Citation
 

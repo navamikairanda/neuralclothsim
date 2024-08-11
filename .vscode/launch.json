@@ -25,24 +25,6 @@
             ]
         },
         {
-            "name": "napkin_strong_form",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "run_neuralclothsim.py",
-            "console": "integratedTerminal",
-            "justMyCode": true, 
-            "args": [
-                "-c",
-                "config/napkin_strong_form.ini", 
-                "-n", 
-                "napkin_debug_strong_form", 
-                "--n_iterations", 
-                "200", 
-                "-m",
-                "material/linear_1.ini"
-            ]
-        }, 
-        {
             "name": "drape",
             "type": "debugpy",
             "request": "launch",

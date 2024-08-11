@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
+'''
+Both functions below assume the tensor input is [row*cols, 1]. They expect the samples to be nicely arranged in a grid.
+Therefore, these functions would not work well for random samples (MeshSampler) but for contiguous samples (GridSampler), such as an analytical surface.
+'''
 
 def get_plot_single_tensor(tensor, spatial_sidelen):
-    # assumes mG is [row*cols, 1]
     fig = plt.figure()
     ax = fig.gca()
     pcolormesh = ax.pcolormesh(tensor.view(spatial_sidelen, spatial_sidelen).detach().cpu())

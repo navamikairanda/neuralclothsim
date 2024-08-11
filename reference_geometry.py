@@ -5,7 +5,7 @@ from diff_operators import jacobian
 from plot_helper import get_plot_grid_tensor
 
 class ReferenceGeometry(): 
-    def __init__(self, curvilinear_coords, spatial_sidelen, temporal_sidelen, reference_midsurface, tb_writer, debug_ref_geometry=False):
+    def __init__(self, curvilinear_coords, spatial_sidelen, temporal_sidelen, reference_midsurface, tb_writer, debug=False):
         self.curvilinear_coords, self.spatial_sidelen, self.temporal_sidelen = curvilinear_coords, spatial_sidelen, temporal_sidelen
         self.midsurface_positions = reference_midsurface.midsurface(self.curvilinear_coords)
         self.base_vectors()
@@ -20,7 +20,7 @@ class ReferenceGeometry():
         self.a_3 = self.a_3.repeat(1, self.temporal_sidelen, 1)
         self.a__1 = self.a__1.repeat(1, self.temporal_sidelen, 1)
         self.a__2 = self.a__2.repeat(1, self.temporal_sidelen, 1)
-        if debug_ref_geometry:       
+        if debug:       
             tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0], spatial_sidelen))
             tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:curvilinear_coords.shape[1]], self.b_1_2[0,:curvilinear_coords.shape[1]],self.b_2_1[0,:curvilinear_coords.shape[1]], self.b_2_2[0,:curvilinear_coords.shape[1]], spatial_sidelen))            
             
