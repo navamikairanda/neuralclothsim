@@ -20,10 +20,10 @@ from file_io import save_meshes
 
 def test(ndf, test_temporal_sidelen, meshes_dir, i, reference_midsurface, tb_writer):
     
-    test_deformations = ndf(reference_midsurface.curvilinear_coords.repeat(1, test_temporal_sidelen, 1), reference_midsurface.temporal_coords)
+    test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_temporal_sidelen, 1), reference_midsurface.temporal_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_temporal_sidelen, 1) + test_deformations
     tb_writer.add_mesh('simulated_states', test_deformed_positions.view(test_temporal_sidelen, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_temporal_sidelen, 1, 1), global_step=i)
-    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_temporal_sidelen, reference_midsurface.curvilinear_coords) 
+    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_temporal_sidelen, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
         
 def train():  
     args = get_config_parser().parse_args()
@@ -70,8 +70,8 @@ def train():
         material = NonLinearMaterial(args)
     external_load = torch.tensor(args.gravity_acceleration, device=device) * material.mass_area_density
 
-    if args.reference_geometry_name in ['mesh']: #False: 
-        sampler = MeshSampler(reference_midsurface.template_mesh, reference_midsurface.curvilinear_coords, args.train_n_mesh_samples, args.train_temporal_sidelen)
+    if args.reference_geometry_name in ['mesh']:
+        sampler = MeshSampler(reference_midsurface.template_mesh, args.train_n_mesh_samples, args.train_temporal_sidelen)
         external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_n_mesh_samples, 3)
     else:
         sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'train')

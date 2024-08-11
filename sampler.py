@@ -179,10 +179,9 @@ class GridSampler(Dataset):
         return curvilinear_coords, temporal_coords            
 
 class MeshSampler(Dataset):
-    def __init__(self, reference_mesh, reference_curvilinear_coords, n_samples, temporal_sidelen):
+    def __init__(self, reference_mesh, n_samples, temporal_sidelen):
         super().__init__()
         self.reference_mesh = reference_mesh
-        self.reference_curvilinear_coords = reference_curvilinear_coords
         self.n_samples = n_samples
         self.temporal_sidelen = temporal_sidelen
                 

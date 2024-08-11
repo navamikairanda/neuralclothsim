@@ -86,7 +86,7 @@ class Siren(nn.Module):
         ### Normalize coordinates ###
         if self.reference_geometry_name in ['cylinder', 'cone']:
             normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.xi__2_scale], dim=2)
-        elif self.reference_geometry_name in ['rectangle', 'mesh']:
+        else:
             normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.xi__1_scale, curvilinear_coords[...,1:2]/self.xi__2_scale], dim=2)
         output = self.net(normalized_coords)
         

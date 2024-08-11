@@ -10,7 +10,7 @@ def get_config_parser():
     parser.add_argument('-n', '--expt_name', type=str, required=True, help='experiment name; also the name of subdirectory in logging_dir')
 
     # simulation parameters
-    parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of the reference geometry; can be rectangle, cylinder, cone or mesh')
+    parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of the reference geometry; can be rectangle_xy, rectangle_xz,  cylinder, cone or mesh')
     parser.add_argument('--xi__1_scale', type=float, default=2 * math.pi, help='scale for xi__1; 2 * pi for cylinder or cone, and 1 for rectangle or mesh')
     parser.add_argument('--xi__2_scale', type=float, default=1, help='scale for xi__2; 1 for all reference geometries')
     parser.add_argument('--boundary_condition_name', type=str, help='name of the spatio-temporal boundary condition; can be top_left_fixed, top_left_top_right_drape for rectangle, and two_rims_compression for cylinder, and top_rim_fixed, top_rim_torsion for cone')

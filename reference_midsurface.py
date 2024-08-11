@@ -40,9 +40,8 @@ class ReferenceMidSurface():
             vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
             self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)
-            self.curvilinear_coords = aux.verts_uvs
             if args.boundary_condition_name == 'mesh_vertices':
-                self.boundary_curvilinear_coords = self.curvilinear_coords[args.boundary_condition_vertices]
+                self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.boundary_condition_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, args.test_spatial_sidelen, tb_writer)
             reference_mlp_verts_pred = self.midsurface(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
@@ -50,10 +49,11 @@ class ReferenceMidSurface():
         else:
             sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'test')
             dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
-            self.curvilinear_coords, self.temporal_coords = next(iter(dataloader))
-            self.vertices = self.midsurface(self.curvilinear_coords)
-            self.faces = self.faces_uvs = torch.tensor(generate_mesh_topology(args.test_spatial_sidelen), device=device)
-            self.curvilinear_coords = self.curvilinear_coords[0]
+            curvilinear_coords, self.temporal_coords = next(iter(dataloader))
+            vertices = self.midsurface(curvilinear_coords)[0]
+            faces = torch.tensor(generate_mesh_topology(args.test_spatial_sidelen), device=device)
+            texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
+            self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
         tb_writer.add_mesh('reference_state_fitted', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
         save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state_fitted.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])
         
@@ -83,21 +83,17 @@ class ReferenceMidSurface():
         a_2_1 = torch.einsum('ijk,ijk->ij', a_2, a_1)
         
         #tb_writer.add_figure('metric_tensor_finite_difference', get_plot_single_tensor(a_2_2, spatial_sidelen))
-        tb_writer.add_figure('metric_tensor_finite_difference', get_plot_grid_tensor(a_1_1, a_1_2, a_2_1, a_2_2, spatial_sidelen))
-        '''
+        tb_writer.add_figure('metric_tensor_finite_difference', get_plot_grid_tensor(a_1_1, a_1_2, a_2_1, a_2_2, spatial_sidelen))        
         self.curvilinear_coords.requires_grad_(True)
+        '''
         for i in trange(reference_mlp_n_iterations):
             reference_optimizer.zero_grad()
             with torch.no_grad(): 
-                verts, uvs = sample_points_from_meshes(self.template_mesh, 400)
-            #fitted_verts = self.reference_mlp(self.curvilinear_coords[None])
-            #fitted_verts = self.reference_mlp(self.curvilinear_coords)
-            #loss = loss_fn(fitted_verts, self.vertices)            
+                verts, uvs = sample_points_from_meshes(self.template_mesh, 400)           
             #fitted_verts = self.reference_mlp(uvs)
             loss = loss_fn(self.reference_mlp(uvs), verts)
             #base_vectors = jacobian(fitted_verts, self.curvilinear_coords)[0]
             #loss += loss_fn(base_vectors[...,0], fd_a_1) + loss_fn(base_vectors[...,1], fd_a_2)
-            #loss = loss_fn(fitted_verts, self.vertices[None])
             loss.backward()
             reference_optimizer.step()
             tb_writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
@@ -105,13 +101,14 @@ class ReferenceMidSurface():
     def midsurface(self, curvilinear_coords):
         xi__1 = curvilinear_coords[...,0] 
         xi__2 = curvilinear_coords[...,1]
-        if self.reference_geometry_name == 'rectangle':
-            #midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
+        if self.reference_geometry_name == 'rectangle_xy': #vertical
+            midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
             #midsurface_positions = torch.stack([xi__1 - 0.5, xi__2 - 0.5, 1.6 + 0.* (xi__1**2 - xi__2**2)], dim=2)            
-            #midsurface_positions = torch.stack([xi__1 - 0.5, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2 - 0.5], dim=2)
-            #midsurface_positions = torch.stack([xi__1, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision sphere example
-            #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example   
+        elif self.reference_geometry_name == 'rectangle_xz': #horizontal
             midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #non-boundary constraint
+            #midsurface_positions = torch.stack([xi__1 - 0.5, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2 - 0.5], dim=2)            
+            #midsurface_positions = torch.stack([xi__1, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision sphere example
+            #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example  
         elif self.reference_geometry_name == 'cylinder':
             R = 0.25
             midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
