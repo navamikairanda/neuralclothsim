@@ -54,6 +54,7 @@ The codebase has the following structure:
 * `sampler.py` contains the implementation of the sampler (uniform and mesh-based) for the cloth.
 
 ### Running
+#TODO: I am here
 For full version, check out run_neuralclothsim.py, reproduce simulations with
 
 <details>
@@ -80,6 +81,7 @@ python run_neuralclothsim.py -c config/skirt_static_rim.ini -n skirt_static_rim 
 ```
 
 #### Reference mesh
+Consistency experiment (Figs.6, XII)
 ```
 python run_neuralclothsim.py -c config/napkin_mesh.ini --expt_name napkin_mesh
 ```
