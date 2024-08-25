@@ -64,10 +64,6 @@ def get_config_parser():
     parser.add_argument('--lrate_decay_steps', type=int, default=10000, help='learning rate decay steps')
     parser.add_argument('--lrate_decay_rate', type=float, default=0.1, help='learning rate decay rate')    
     parser.add_argument('--n_iterations', type=int, default=10000, help='number of training iterations')
-    parser.add_argument('--physics_loss_weight', type=float, default=1.0, help='weight for physics loss')
-    parser.add_argument('--initial_deformations_loss_weight', type=float, default=1.0, help='weight for initial deformations loss')
-    parser.add_argument('--initial_velocity_loss_weight', type=float, default=1.0, help='weight for initial velocity loss')
-    parser.add_argument('--initial_acceleration_loss_weight', type=float, default=1.0, help='weight for initial acceleration loss')
     parser.add_argument('--debug', action='store_true', help='whether to run NeuralClothSim in debug mode; this will plot the reference geometric quantities (metric and curvature tensor) and the strains due to deformation (membrane, bending, orthotropic, and strain energy density) to TensorBoard')
     
     # logging/saving options

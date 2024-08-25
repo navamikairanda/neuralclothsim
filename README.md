@@ -87,6 +87,7 @@ python run_neuralclothsim.py -c config/napkin_mesh.ini --expt_name napkin_mesh
 ```
 
 #### Collision
+Set physics_loss_weight = 1.0, collision_loss_weight = 1.0
 ```
 python run_neuralclothsim.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
 ```

@@ -80,22 +80,6 @@
             ]
         },
         {
-            "name": "arcsim_disk",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "run_neuralclothsim.py",
-            "console": "integratedTerminal",
-            "justMyCode": true, 
-            "args": [
-                "-c",
-                "config/arcsim_disk.ini",
-                "-n", 
-                "arcsim_disk_debug", 
-                "-m",
-                "material/linear_1.ini"
-            ]
-        },
-        {
             "name": "arcsim_disk_15k",
             "type": "debugpy",
             "request": "launch",
@@ -107,6 +91,22 @@
                 "config/arcsim_disk_15k.ini",
                 "-n", 
                 "arcsim_disk_15k_debug", 
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "napkin_mesh",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/non_flat_non_rectangular_surface.ini",
+                "-n", 
+                "non_flat_non_rectangular_surface_debug",
                 "-m",
                 "material/linear_1.ini"
             ]
