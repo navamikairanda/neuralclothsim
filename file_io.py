@@ -3,8 +3,7 @@ import imageio
 import natsort
 import torch
 from pytorch3d.io import save_obj, load_obj
-from pytorch3d.structures import Pointclouds
-from pytorch3d.structures import Meshes, join_meshes_as_batch
+from pytorch3d.structures import Pointclouds, Meshes, join_meshes_as_batch
 from config_parser import device 
 
 def save_meshes(positions, faces, meshes_dir, i, temporal_sidelen, verts_uvs=None, tex_image_file=None):

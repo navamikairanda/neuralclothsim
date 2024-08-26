@@ -18,7 +18,7 @@ from modules import compute_sdf
 from file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
-def test(ndf, test_temporal_sidelen, meshes_dir, i, reference_midsurface, tb_writer):
+def test(ndf: Siren, test_temporal_sidelen: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface, tb_writer: SummaryWriter):
     
     test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_temporal_sidelen, 1), reference_midsurface.temporal_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_temporal_sidelen, 1) + test_deformations

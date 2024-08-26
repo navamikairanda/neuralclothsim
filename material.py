@@ -1,5 +1,7 @@
+import torch
+
 class Material():
-    def __init__(self, mass_area_density, thickness):
+    def __init__(self, mass_area_density: float, thickness: float):
         self.thickness = thickness
         self.mass_area_density = mass_area_density
         
@@ -24,19 +26,19 @@ class NonLinearMaterial(Material):
             self.E_11_min, self.E_11_max, self.E_22_min, self.E_22_max, self.E_12_max = args.E_11_min, args.E_11_max, args.E_22_min, args.E_22_max, args.E_12_max
             self.E_12_min = -self.E_12_max        
     
-    def compute_eta(self, j, x):
+    def compute_eta(self, j: int, x: torch.Tensor) -> torch.Tensor:
         eta = 0
         for i in range(self.d[j]):
             eta += ((self.mu[j][i] / self.alpha[j][i]) * ((x + 1) ** self.alpha[j][i] - 1))
         return eta
     
-    def compute_eta_first_derivative(self, j, x):
+    def compute_eta_first_derivative(self, j: int, x: torch.Tensor) -> torch.Tensor:
         eta_first_derivative = 0
         for i in range(self.d[j]):
             eta_first_derivative += (self.mu[j][i] * (x + 1) ** (self.alpha[j][i] - 1))
         return eta_first_derivative
     
-    def compute_eta_second_derivative(self, j, x):
+    def compute_eta_second_derivative(self, j: int, x: torch.Tensor) -> torch.Tensor: 
         eta_second_derivative = 0
         for i in range(self.d[j]):
             eta_second_derivative += (self.mu[j][i] * (self.alpha[j][i] - 1) * (x + 1) ** (self.alpha[j][i] - 2))

@@ -3,9 +3,10 @@ from torch.nn.functional import normalize
 
 from diff_operators import jacobian
 from plot_helper import get_plot_grid_tensor
+from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 
-    def __init__(self, curvilinear_coords, spatial_sidelen, temporal_sidelen, reference_midsurface, tb_writer, debug=False):
+    def __init__(self, curvilinear_coords: torch.Tensor, spatial_sidelen: int, temporal_sidelen: int, reference_midsurface: ReferenceMidSurface, tb_writer, debug=False):
         self.curvilinear_coords, self.spatial_sidelen, self.temporal_sidelen = curvilinear_coords, spatial_sidelen, temporal_sidelen
         self.midsurface_positions = reference_midsurface.midsurface(self.curvilinear_coords)
         self.base_vectors()

@@ -6,7 +6,7 @@ from torch.nn.functional import normalize
 from config_parser import device
 
 class SineLayer(nn.Module):      
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30.):
+    def __init__(self, in_features: int, out_features: int, bias=True, is_first=False, omega_0=30.):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first        
@@ -25,7 +25,7 @@ class SineLayer(nn.Module):
         return torch.sin(self.omega_0 * self.linear(input))
    
 class Siren(nn.Module):
-    def __init__(self, xi__1_scale, xi__2_scale, boundary_condition_name, reference_geometry_name, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
+    def __init__(self, xi__1_scale: float, xi__2_scale: float, boundary_condition_name: str, reference_geometry_name: str, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
         super().__init__()
         self.k = k
         self.xi__1_scale = xi__1_scale
@@ -52,7 +52,7 @@ class Siren(nn.Module):
             self.net.append(SineLayer(hidden_features, out_features, is_first=False, omega_0=hidden_omega_0))    
         self.net = nn.Sequential(*self.net)
     
-    def forward(self, curvilinear_coords, temporal_coords):
+    def forward(self, curvilinear_coords: torch.Tensor, temporal_coords: torch.Tensor):
         
         ### Define initial and boundary condition ###
         initial_condition = temporal_coords ** 2

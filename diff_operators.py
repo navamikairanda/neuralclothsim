@@ -1,7 +1,8 @@
 import torch
 from torch.autograd import grad
+from typing import Tuple
 
-def jacobian(y, x):
+def jacobian(y: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, int]:
     ''' jacobian of y wrt x '''
     meta_batch_size, num_observations = y.shape[:2]
     jac = torch.zeros(meta_batch_size, num_observations, y.shape[-1], x.shape[-1]).to(y.device)

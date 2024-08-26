@@ -4,7 +4,8 @@ from torch.utils.data import Dataset
 from config_parser import device
 
 # Parts of the code borrowed from Meta Platforms, Inc.
-from typing import Tuple, Union
+from typing import Tuple, Union, Literal
+from pytorch3d.structures import Meshes
 from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals
 from pytorch3d.ops.packed_to_padded import packed_to_padded
 
@@ -116,7 +117,7 @@ def _rand_barycentric_coords(
     w2 = u_sqrt * v
     return w0, w1, w2
 
-def get_mgrid(sidelen, stratified=False, dim=2):
+def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim=2):
     # Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
     if dim == 1:
         sidelen_x = sidelen[0] if stratified else sidelen[0] - 1
@@ -136,7 +137,7 @@ def get_mgrid(sidelen, stratified=False, dim=2):
     return grid_coords
                        
 class GridSampler(Dataset):
-    def __init__(self, spatial_sidelen, temporal_sidelen, xi__1_scale, xi__2_scale, mode):
+    def __init__(self, spatial_sidelen: int, temporal_sidelen: int, xi__1_scale: float, xi__2_scale: float, mode: Literal['train', 'test']):
         super().__init__()
         self.mode = mode
         self.spatial_sidelen = spatial_sidelen
@@ -179,7 +180,7 @@ class GridSampler(Dataset):
         return curvilinear_coords, temporal_coords            
 
 class MeshSampler(Dataset):
-    def __init__(self, reference_mesh, n_samples, temporal_sidelen):
+    def __init__(self, reference_mesh: Meshes, n_samples: int, temporal_sidelen: int):
         super().__init__()
         self.reference_mesh = reference_mesh
         self.n_samples = n_samples
