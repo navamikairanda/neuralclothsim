@@ -1,4 +1,5 @@
 import torch
+from typing import NamedTuple
 
 class Material():
     def __init__(self, mass_area_density: float, thickness: float):
@@ -43,3 +44,7 @@ class NonLinearMaterial(Material):
         for i in range(self.d[j]):
             eta_second_derivative += (self.mu[j][i] * (self.alpha[j][i] - 1) * (x + 1) ** (self.alpha[j][i] - 2))
         return eta_second_derivative
+
+class MaterialOrthotropy(NamedTuple):
+    d_1: torch.Tensor
+    d_2: torch.Tensor

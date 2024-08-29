@@ -112,3 +112,31 @@ class ReferenceGeometry():
         self.gamma_22__2 = self.gamma_22__2.repeat(1,self.temporal_sidelen)
         self.gamma_21__1 = self.gamma_21__1.repeat(1,self.temporal_sidelen)
         self.gamma_21__2 = self.gamma_21__2.repeat(1,self.temporal_sidelen)
+
+    @torch.no_grad()
+    def elastic_tensor(self, poissons_ratio: float):
+        H__1111 = poissons_ratio * self.a__1__1 * self.a__1__1 + 0.5 * (1 - poissons_ratio) * (self.a__1__1 * self.a__1__1 + self.a__1__1 * self.a__1__1)
+        H__1112 = poissons_ratio * self.a__1__1 * self.a__1__2 + 0.5 * (1 - poissons_ratio) * (self.a__1__1 * self.a__1__2 + self.a__1__2 * self.a__1__1)
+        H__1122 = poissons_ratio * self.a__1__1 * self.a__2__2 + 0.5 * (1 - poissons_ratio) * (self.a__1__2 * self.a__1__2 + self.a__1__2 * self.a__1__2)
+        H__1212 = poissons_ratio * self.a__1__2 * self.a__1__2 + 0.5 * (1 - poissons_ratio) * (self.a__1__1 * self.a__2__2 + self.a__1__2 * self.a__2__1)
+        H__1222 = poissons_ratio * self.a__1__2 * self.a__2__2 + 0.5 * (1 - poissons_ratio) * (self.a__1__2 * self.a__2__2 + self.a__1__2 * self.a__2__2)
+        H__2222 = poissons_ratio * self.a__2__2 * self.a__2__2 + 0.5 * (1 - poissons_ratio) * (self.a__2__2 * self.a__2__2 + self.a__2__2 * self.a__2__2)
+        return H__1111, H__1112, H__1122, H__1212, H__1222, H__2222
+        
+    def contravariant_base_vectors(self, xi__3: float):
+        g_1_1 = self.a_1_1.repeat(1, self.temporal_sidelen) - 2 * xi__3 * self.b_1_1
+        g_1_2 = self.a_1_2.repeat(1, self.temporal_sidelen) - 2 * xi__3 * self.b_1_2
+        g_2_2 = self.a_2_2.repeat(1, self.temporal_sidelen) - 2 * xi__3 * self.b_2_2
+        
+        g_1 = self.a_1 + xi__3 * self.a_3pd[...,0].repeat(1, self.temporal_sidelen, 1)
+        g_2 = self.a_2 + xi__3 * self.a_3pd[...,1].repeat(1, self.temporal_sidelen, 1)
+        g_covariant_matrix = torch.stack([torch.stack([g_1_1, g_1_2], dim=2), torch.stack([g_1_2, g_2_2], dim=2)], dim=2) 
+        g_contravariant_matrix = torch.linalg.inv(g_covariant_matrix)
+        g__1 = torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,0,0], g_1) + torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,0,1], g_2)
+        g__2 = torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,1,0], g_1) + torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,1,1], g_2)
+
+        g__1__1 = torch.einsum('ijk,ijl->ijkl', g__1, g__1)
+        g__1__2 = torch.einsum('ijk,ijl->ijkl', g__1, g__2)
+        g__2__1 = torch.einsum('ijk,ijl->ijkl', g__2, g__1)
+        g__2__2 = torch.einsum('ijk,ijl->ijkl', g__2, g__2)
+        return g__1__1, g__1__2, g__2__1, g__2__2    

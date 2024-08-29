@@ -1,51 +1,23 @@
 import torch
 from torch.nn.functional import normalize
 from diff_operators import jacobian
-from material import Material, LinearMaterial, NonLinearMaterial
+from material import Material, LinearMaterial, NonLinearMaterial, MaterialOrthotropy
 from plot_helper import get_plot_single_tensor
 from reference_geometry import ReferenceGeometry
 from strain import Strain, compute_strain
-
-@torch.no_grad()
-def elastic_tensor(ref_geometry: ReferenceGeometry, poissons_ratio: float):
-    H__1111 = poissons_ratio * ref_geometry.a__1__1 * ref_geometry.a__1__1 + 0.5 * (1 - poissons_ratio) * (ref_geometry.a__1__1 * ref_geometry.a__1__1 + ref_geometry.a__1__1 * ref_geometry.a__1__1)
-    H__1112 = poissons_ratio * ref_geometry.a__1__1 * ref_geometry.a__1__2 + 0.5 * (1 - poissons_ratio) * (ref_geometry.a__1__1 * ref_geometry.a__1__2 + ref_geometry.a__1__2 * ref_geometry.a__1__1)
-    H__1122 = poissons_ratio * ref_geometry.a__1__1 * ref_geometry.a__2__2 + 0.5 * (1 - poissons_ratio) * (ref_geometry.a__1__2 * ref_geometry.a__1__2 + ref_geometry.a__1__2 * ref_geometry.a__1__2)
-    H__1212 = poissons_ratio * ref_geometry.a__1__2 * ref_geometry.a__1__2 + 0.5 * (1 - poissons_ratio) * (ref_geometry.a__1__1 * ref_geometry.a__2__2 + ref_geometry.a__1__2 * ref_geometry.a__2__1)
-    H__1222 = poissons_ratio * ref_geometry.a__1__2 * ref_geometry.a__2__2 + 0.5 * (1 - poissons_ratio) * (ref_geometry.a__1__2 * ref_geometry.a__2__2 + ref_geometry.a__1__2 * ref_geometry.a__2__2)
-    H__2222 = poissons_ratio * ref_geometry.a__2__2 * ref_geometry.a__2__2 + 0.5 * (1 - poissons_ratio) * (ref_geometry.a__2__2 * ref_geometry.a__2__2 + ref_geometry.a__2__2 * ref_geometry.a__2__2)
-    return H__1111, H__1112, H__1122, H__1212, H__1222, H__2222
-
-def contravariant_base_vectors(ref_geometry, xi__3):
-    g_1_1 = ref_geometry.a_1_1.repeat(1, ref_geometry.temporal_sidelen) - 2 * xi__3 * ref_geometry.b_1_1
-    g_1_2 = ref_geometry.a_1_2.repeat(1, ref_geometry.temporal_sidelen) - 2 * xi__3 * ref_geometry.b_1_2
-    g_2_2 = ref_geometry.a_2_2.repeat(1, ref_geometry.temporal_sidelen) - 2 * xi__3 * ref_geometry.b_2_2
-    
-    g_1 = ref_geometry.a_1 + xi__3 * ref_geometry.a_3pd[...,0].repeat(1, ref_geometry.temporal_sidelen, 1)
-    g_2 = ref_geometry.a_2 + xi__3 * ref_geometry.a_3pd[...,1].repeat(1, ref_geometry.temporal_sidelen, 1)
-    g_covariant_matrix = torch.stack([torch.stack([g_1_1, g_1_2], dim=2), torch.stack([g_1_2, g_2_2], dim=2)], dim=2) 
-    g_contravariant_matrix = torch.linalg.inv(g_covariant_matrix)
-    g__1 = torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,0,0], g_1) + torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,0,1], g_2)
-    g__2 = torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,1,0], g_1) + torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,1,1], g_2)
-
-    g__1__1 = torch.einsum('ijk,ijl->ijkl', g__1, g__1)
-    g__1__2 = torch.einsum('ijk,ijl->ijkl', g__1, g__2)
-    g__2__1 = torch.einsum('ijk,ijl->ijkl', g__2, g__1)
-    g__2__2 = torch.einsum('ijk,ijl->ijkl', g__2, g__2)
-    return g__1__1, g__1__2, g__2__1, g__2__2
-            
-def compute_nonlinear_internal_energy(strain: Strain, material: torch.Tensor, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, xi__3):
+                
+def compute_nonlinear_internal_energy(strain: Strain, material: NonLinearMaterial, material_directions: MaterialOrthotropy, ref_geometry: ReferenceGeometry, tb_writer, i, xi__3: float) -> torch.Tensor:
     # _ob are the strains in the original basis
     # Eq. (22)
     E11_ob = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
     E12_ob = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
     E22_ob = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
-    g__1__1, g__1__2, g__2__1, g__2__2 = contravariant_base_vectors(ref_geometry, xi__3)
+    g__1__1, g__1__2, g__2__1, g__2__2 = ref_geometry.contravariant_base_vectors(xi__3)
     
     E = torch.einsum('ij,ijkl->ijkl', E11_ob, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_ob, g__2__2)
-    E11 = torch.einsum('ijk,ijkl,ijl->ij', material_direction_1, E, material_direction_1)
-    E12 = torch.einsum('ijk,ijkl,ijl->ij', material_direction_1, E, material_direction_2)
-    E22 = torch.einsum('ijk,ijkl,ijl->ij', material_direction_2, E, material_direction_2)
+    E11 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E, material_directions.d_1)
+    E12 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E, material_directions.d_2)
+    E22 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_2, E, material_directions.d_2)
     
     #E11, E12, E22 = E11_ob, E12_ob, E22_ob    
     if material.StVK:        
@@ -99,7 +71,7 @@ def compute_nonlinear_internal_energy(strain: Strain, material: torch.Tensor, ma
     return hyperelastic_strain_energy
 
 def compute_linear_internal_energy(strain: Strain, material: LinearMaterial, ref_geometry: ReferenceGeometry) -> torch.Tensor:
-    H__1111, H__1112, H__1122, H__1212, H__1222, H__2222 = elastic_tensor(ref_geometry, material.poissons_ratio)
+    H__1111, H__1112, H__1122, H__1212, H__1222, H__2222 = ref_geometry.elastic_tensor(material.poissons_ratio)
         
     n__1__1 = H__1111 * strain.epsilon_1_1 + 2 * H__1112 * strain.epsilon_1_2 + H__1122 * strain.epsilon_2_2
     n__1__2 = H__1112 * strain.epsilon_1_1 + 2 * H__1212 * strain.epsilon_1_2 + H__1222 * strain.epsilon_2_2
@@ -117,7 +89,7 @@ def compute_linear_internal_energy(strain: Strain, material: LinearMaterial, ref
 
 def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, material: Material, external_load: torch.Tensor, temporal_coords: torch.Tensor, tb_writer, i: int) -> torch.Tensor:
     deformations_local = torch.einsum('ijkl,ijl->ijk', ref_geometry.cartesian_coord_2_covariant, deformations)
-    strain = compute_strain(deformations_local, ref_geometry, tb_writer, i)
+    strain, normal_difference = compute_strain(deformations_local, ref_geometry, tb_writer, i)
     
     if isinstance(material, LinearMaterial):        
         hyperelastic_strain_energy_mid = compute_linear_internal_energy(strain, material, ref_geometry)
@@ -126,21 +98,21 @@ def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         kinetic_energy = 0.5 * material.mass_area_density * torch.einsum('ijkl,ijkl->ij', velocity, velocity)
         mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(ref_geometry.a) #+ kinetic_energy
     elif isinstance(material, NonLinearMaterial):
-        material_direction_1 = normalize((ref_geometry.a_1), dim=2)
-        material_direction_2 = torch.linalg.cross(ref_geometry.a_3, material_direction_1)
-        hyperelastic_strain_energy_top = compute_nonlinear_internal_energy(strain, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, -0.5 * material.thickness)
-        hyperelastic_strain_energy_mid = compute_nonlinear_internal_energy(strain, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, 0.)
-        hyperelastic_strain_energy_bottom = compute_nonlinear_internal_energy(strain, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, 0.5 * material.thickness)
+        d_1 = normalize((ref_geometry.a_1), dim=2)
+        d_2 = torch.linalg.cross(ref_geometry.a_3, d_1)
+        material_directions = MaterialOrthotropy(d_1, d_2)
+        hyperelastic_strain_energy_top = compute_nonlinear_internal_energy(strain, material, material_directions, ref_geometry, tb_writer, i, -0.5 * material.thickness)
+        hyperelastic_strain_energy_mid = compute_nonlinear_internal_energy(strain, material, material_directions, ref_geometry, tb_writer, i, 0.)
+        hyperelastic_strain_energy_bottom = compute_nonlinear_internal_energy(strain, material, material_directions, ref_geometry, tb_writer, i, 0.5 * material.thickness)
 
         #hyperelastic_strain_energy = (hyperelastic_strain_energy_top + hyperelastic_strain_energy_mid + hyperelastic_strain_energy_bottom) / 3.        
-        deformations_mid = deformations
-        external_energy_mid = torch.einsum('ijk,ijk->ij', external_load, deformations_mid)
+        external_energy_mid = torch.einsum('ijk,ijk->ij', external_load, deformations)
         
         #velocity = jacobian(deformations_mid, temporal_coords)[0]
         #kinetic_energy = 0.5 * material.mass_area_density * torch.einsum('ijkl,ijkl->ij', velocity, velocity)        
         #mechanical_energy = ((hyperelastic_strain_energy_top + kinetic_energy - external_energy_top) + 4 * (hyperelastic_strain_energy_mid + kinetic_energy - external_energy_mid) + (external_energy_bottom + kinetic_energy - hyperelastic_strain_energy_bottom)) * torch.sqrt(ref_geometry.a) / 6.        
-        deformations_top = deformations - 0.5 * material.thickness * strain.w
-        deformations_bottom = deformations + 0.5 * material.thickness * strain.w
+        deformations_top = deformations - 0.5 * material.thickness * normal_difference
+        deformations_bottom = deformations + 0.5 * material.thickness * normal_difference
         external_energy_top = torch.einsum('ijk,ijk->ij', external_load, deformations_top)
         external_energy_bottom = torch.einsum('ijk,ijk->ij', external_load, deformations_bottom)
         mechanical_energy = ((hyperelastic_strain_energy_top - external_energy_top) + 4 * (hyperelastic_strain_energy_mid - external_energy_mid) + (external_energy_bottom - hyperelastic_strain_energy_bottom)) * torch.sqrt(ref_geometry.a) / 6.        

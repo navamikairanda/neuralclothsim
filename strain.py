@@ -11,7 +11,6 @@ class Strain(NamedTuple):
     kappa_1_1: torch.Tensor
     kappa_1_2: torch.Tensor
     kappa_2_2: torch.Tensor
-    w: torch.Tensor
     
 def covariant_first_derivative_of_covariant_first_order_tensor(covariant_vectors, ref_geometry):
     vpd = jacobian(torch.stack(covariant_vectors, dim=2), ref_geometry.curvilinear_coords)[0]
@@ -92,10 +91,10 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     w_1 = -phi_1_3 + phi_1__1 * phi_1_3 + phi_1__2 * phi_2_3
     w_2 = -phi_2_3 + phi_2__1 * phi_1_3 + phi_2__2 * phi_2_3
     w_3 = 0.5 * (phi_1_3 * phi_3__1 + phi_2_3 * phi_3__2)
-    w = torch.einsum('ij,ijk->ijk', w_1, ref_geometry.a__1) + torch.einsum('ij,ijk->ijk', w_2, ref_geometry.a__2) + torch.einsum('ij,ijk->ijk', w_3, ref_geometry.a_3)
+    normal_difference = torch.einsum('ij,ijk->ijk', w_1, ref_geometry.a__1) + torch.einsum('ij,ijk->ijk', w_2, ref_geometry.a__2) + torch.einsum('ij,ijk->ijk', w_3, ref_geometry.a_3)
     
     if not i % 200:
         tb_writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1[0,:ref_geometry.spatial_sidelen**2], epsilon_1_2[0,:ref_geometry.spatial_sidelen**2], epsilon_1_2[0,:ref_geometry.spatial_sidelen**2], epsilon_2_2[0,:ref_geometry.spatial_sidelen**2], ref_geometry.spatial_sidelen), i)
         tb_writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,:ref_geometry.spatial_sidelen**2], kappa_1_2[0,:ref_geometry.spatial_sidelen**2], kappa_1_2[0,:ref_geometry.spatial_sidelen**2], kappa_2_2[0,:ref_geometry.spatial_sidelen**2], ref_geometry.spatial_sidelen), i)
     
-    return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2, w)
+    return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2), normal_difference
