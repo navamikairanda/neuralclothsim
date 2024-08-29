@@ -88,6 +88,7 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     else: 
         epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2 = epsilon_1_1_linear, epsilon_1_2_linear, epsilon_2_2_linear, kappa_1_1_linear, kappa_1_2_linear, kappa_2_2_linear
     
+    # Theorem B.3, Eq. (51)
     w_1 = -phi_1_3 + phi_1__1 * phi_1_3 + phi_1__2 * phi_2_3
     w_2 = -phi_2_3 + phi_2__1 * phi_1_3 + phi_2__2 * phi_2_3
     w_3 = 0.5 * (phi_1_3 * phi_3__1 + phi_2_3 * phi_3__2)

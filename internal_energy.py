@@ -21,7 +21,6 @@ def contravariant_base_vectors(ref_geometry, xi__3):
     g_1_2 = ref_geometry.a_1_2.repeat(1, ref_geometry.temporal_sidelen) - 2 * xi__3 * ref_geometry.b_1_2
     g_2_2 = ref_geometry.a_2_2.repeat(1, ref_geometry.temporal_sidelen) - 2 * xi__3 * ref_geometry.b_2_2
     
-    #a_3pd = jacobian(ref_geometry.a_3, ref_geometry.curvilinear_coords)[0]
     g_1 = ref_geometry.a_1 + xi__3 * ref_geometry.a_3pd[...,0].repeat(1, ref_geometry.temporal_sidelen, 1)
     g_2 = ref_geometry.a_2 + xi__3 * ref_geometry.a_3pd[...,1].repeat(1, ref_geometry.temporal_sidelen, 1)
     g_covariant_matrix = torch.stack([torch.stack([g_1_1, g_1_2], dim=2), torch.stack([g_1_2, g_2_2], dim=2)], dim=2) 
@@ -37,19 +36,17 @@ def contravariant_base_vectors(ref_geometry, xi__3):
             
 def compute_nonlinear_internal_energy(strain: Strain, material: torch.Tensor, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, xi__3):
     # _ob are the strains in the original basis
+    # Eq. (22)
     E11_ob = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
     E12_ob = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
     E22_ob = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
     g__1__1, g__1__2, g__2__1, g__2__2 = contravariant_base_vectors(ref_geometry, xi__3)
+    
     E = torch.einsum('ij,ijkl->ijkl', E11_ob, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_ob, g__2__2)
     E11 = torch.einsum('ijk,ijkl,ijl->ij', material_direction_1, E, material_direction_1)
     E12 = torch.einsum('ijk,ijkl,ijl->ij', material_direction_1, E, material_direction_2)
     E22 = torch.einsum('ijk,ijkl,ijl->ij', material_direction_2, E, material_direction_2)
-    '''
-    E11 = material_direction_1[...,0] ** 2 * E11_ob + 2 * material_direction_1[...,0] * material_direction_1[...,1] * E12_ob + material_direction_1[...,1] ** 2 * E22_ob
-    E12 = material_direction_1[...,0] * material_direction_2[...,0] * E11_ob + (material_direction_1[...,0] * material_direction_2[...,1] + material_direction_1[...,1] * material_direction_2[...,0]) * E12_ob + material_direction_1[...,1] * material_direction_2[...,1] * E22_ob
-    E22 = material_direction_2[...,0] ** 2 * E11_ob + 2 * material_direction_2[...,0] * material_direction_2[...,1] * E12_ob + material_direction_2[...,1] ** 2 * E22_ob
-    '''
+    
     #E11, E12, E22 = E11_ob, E12_ob, E22_ob    
     if material.StVK:        
         # St. Venant-Kirchhoff model [Basar 2000]
@@ -131,7 +128,6 @@ def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     elif isinstance(material, NonLinearMaterial):
         material_direction_1 = normalize((ref_geometry.a_1), dim=2)
         material_direction_2 = torch.linalg.cross(ref_geometry.a_3, material_direction_1)
-        #material_direction_3 = ref_geometry.a_3        
         hyperelastic_strain_energy_top = compute_nonlinear_internal_energy(strain, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, -0.5 * material.thickness)
         hyperelastic_strain_energy_mid = compute_nonlinear_internal_energy(strain, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, 0.)
         hyperelastic_strain_energy_bottom = compute_nonlinear_internal_energy(strain, material, material_direction_1, material_direction_2, ref_geometry, tb_writer, i, 0.5 * material.thickness)
