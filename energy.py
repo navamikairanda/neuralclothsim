@@ -6,9 +6,8 @@ from plot_helper import get_plot_single_tensor
 from reference_geometry import ReferenceGeometry
 from strain import compute_strain                
 
-def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, material: Material, external_load: torch.Tensor, temporal_coords: torch.Tensor, tb_writer, i: int) -> torch.Tensor:
-    deformations_local = torch.einsum('ijkl,ijl->ijk', ref_geometry.cartesian_coord_2_covariant, deformations)
-    strain, normal_difference = compute_strain(deformations_local, ref_geometry, tb_writer, i)
+def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, material: Material, external_load: torch.Tensor, temporal_coords: torch.Tensor, tb_writer, i: int) -> torch.Tensor:   
+    strain, normal_difference = compute_strain(deformations, ref_geometry, tb_writer, i)
     
     if isinstance(material, LinearMaterial):        
         hyperelastic_strain_energy_mid = material.compute_internal_energy(strain, ref_geometry)

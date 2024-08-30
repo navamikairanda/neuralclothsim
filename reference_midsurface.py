@@ -13,7 +13,6 @@ from modules import SirenReference, GELUReference
 from sampler import sample_points_from_meshes
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
-from plot_helper import get_plot_grid_tensor
 
 def generate_mesh_topology(spatial_sidelen):
     rows = cols = spatial_sidelen

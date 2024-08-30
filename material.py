@@ -77,7 +77,7 @@ class NonLinearMaterial(Material):
         E11_ob = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
         E12_ob = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
         E22_ob = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
-        g__1__1, g__1__2, g__2__1, g__2__2 = ref_geometry.contravariant_base_vectors(xi__3)
+        g__1__1, g__1__2, g__2__1, g__2__2 = ref_geometry.shell_base_vectors(xi__3)
         
         E = torch.einsum('ij,ijkl->ijkl', E11_ob, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_ob, g__2__2)
         E11 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E, material_directions.d_1)

@@ -8,13 +8,11 @@ from torch.utils.tensorboard import SummaryWriter
 from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler
 from reference_geometry import ReferenceGeometry
-from modules import Siren
+from modules import Siren, compute_sdf
 from energy import compute_energy
 from logger import get_logger
-from config_parser import get_config_parser
-from config_parser import device
-from reference_midsurface import ReferenceMidSurface
-from modules import compute_sdf
+from config_parser import get_config_parser, device
+from reference_midsurface import ReferenceMidSurface 
 from file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
@@ -95,8 +93,6 @@ def train():
         optimizer.step()    
         
         with torch.no_grad():
-            #if i == 0:
-            #    tb_writer.add_graph(ndf, (ref_geometry.curvilinear_coords, temporal_coords))
             tb_writer.add_scalar('loss/total_loss', loss, i)
             tb_writer.add_scalar('loss/physics_loss', physics_loss, i)
             tb_writer.add_scalar('loss/collision_loss', collision_loss, i)

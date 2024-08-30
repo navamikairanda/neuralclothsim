@@ -31,18 +31,7 @@ class ReferenceGeometry():
         self.a_2 = base_vectors[...,1]
         self.a_3 = normalize(torch.linalg.cross(self.a_1, self.a_2), dim=2)
               
-    def metric_tensor(self):    
-        '''
-        a_1_1 = torch.einsum('ijk,ijk->ij', self.a_1, self.a_1)
-        a_1_2 = torch.einsum('ijk,ijk->ij', self.a_1, self.a_2)
-        a_2_2 = torch.einsum('ijk,ijk->ij', self.a_2, self.a_2)
-
-        self.a = a_1_1 * a_2_2 - (a_1_2 ** 2)
-        self.a__1__1 = a_2_2 / self.a
-        self.a__2__2 = a_1_1 / self.a
-        self.a__1__2 = -1 * a_1_2 / self.a
-        self.a__2__1 = self.a__1__2
-        '''
+    def metric_tensor(self):
         self.a_1_1 = torch.einsum('ijk,ijk->ij', self.a_1, self.a_1)
         self.a_1_2 = torch.einsum('ijk,ijk->ij', self.a_1, self.a_2)
         self.a_2_2 = torch.einsum('ijk,ijk->ij', self.a_2, self.a_2)
@@ -81,13 +70,10 @@ class ReferenceGeometry():
 
     def coord_transform(self):
         with torch.no_grad():
-            contravariant_coord_2_cartesian = torch.stack([self.a_1, self.a_2, self.a_3], dim=3)
-            self.cartesian_coord_2_contravariant = torch.linalg.inv(contravariant_coord_2_cartesian)
-            
+            #contravariant_coord_2_cartesian = torch.stack([self.a_1, self.a_2, self.a_3], dim=3)
+            #self.cartesian_coord_2_contravariant = torch.linalg.inv(contravariant_coord_2_cartesian)            
             covariant_coord_2_cartesian = torch.stack([self.a__1, self.a__2, self.a_3], dim=3)
-            self.cartesian_coord_2_covariant = torch.linalg.inv(covariant_coord_2_cartesian)
-        
-        self.cartesian_coord_2_contravariant = self.cartesian_coord_2_contravariant.repeat(1,self.temporal_sidelen,1,1)
+            self.cartesian_coord_2_covariant = torch.linalg.inv(covariant_coord_2_cartesian)        
         self.cartesian_coord_2_covariant = self.cartesian_coord_2_covariant.repeat(1,self.temporal_sidelen,1,1)
     
     def christoffel_symbol(self):
@@ -123,7 +109,7 @@ class ReferenceGeometry():
         H__2222 = poissons_ratio * self.a__2__2 * self.a__2__2 + 0.5 * (1 - poissons_ratio) * (self.a__2__2 * self.a__2__2 + self.a__2__2 * self.a__2__2)
         return H__1111, H__1112, H__1122, H__1212, H__1222, H__2222
         
-    def contravariant_base_vectors(self, xi__3: float):
+    def shell_base_vectors(self, xi__3: float):
         g_1_1 = self.a_1_1.repeat(1, self.temporal_sidelen) - 2 * xi__3 * self.b_1_1
         g_1_2 = self.a_1_2.repeat(1, self.temporal_sidelen) - 2 * xi__3 * self.b_1_2
         g_2_2 = self.a_2_2.repeat(1, self.temporal_sidelen) - 2 * xi__3 * self.b_2_2
