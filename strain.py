@@ -41,7 +41,7 @@ def covariant_first_derivative_of_covariant_second_order_tensor(covariant_matrix
     
     return phi_1_1cd1, phi_1_1cd2, phi_1_2cd1, phi_1_2cd2, phi_2_1cd1, phi_2_1cd2, phi_2_2cd1, phi_2_2cd2
 
-def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, tb_writer, i, nonlinear=True): 
+def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, tb_writer, i: int, nonlinear_strain=True): 
     
     u_1, u_2, u_3 = deformations[...,0], deformations[...,1], deformations[...,2]
 
@@ -66,7 +66,7 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     kappa_1_2_linear = -1 * phi_1_3cd2 - ref_geometry.b_2__1 * phi_1_1 - ref_geometry.b_2__2 * phi_1_2 
     kappa_2_2_linear = -1 * phi_2_3cd2 - ref_geometry.b_2__1 * phi_2_1 - ref_geometry.b_2__2 * phi_2_2 
     
-    if nonlinear:
+    if nonlinear_strain:
         phi_1__1 = phi_1_1 * ref_geometry.a__1__1 + phi_1_2 * ref_geometry.a__2__1
         phi_1__2 = phi_1_1 * ref_geometry.a__1__2 + phi_1_2 * ref_geometry.a__2__2
         phi_2__1 = phi_2_1 * ref_geometry.a__1__1 + phi_2_2 * ref_geometry.a__2__1

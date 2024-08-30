@@ -9,7 +9,7 @@ from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler
 from reference_geometry import ReferenceGeometry
 from modules import Siren
-from internal_energy import compute_energy
+from energy import compute_energy
 from logger import get_logger
 from config_parser import get_config_parser
 from config_parser import device
