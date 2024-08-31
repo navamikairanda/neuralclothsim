@@ -39,7 +39,7 @@ def train():
      
     reference_midsurface = ReferenceMidSurface(args, tb_writer)
     
-    ndf = Siren(args.xi__1_scale, args.xi__2_scale, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
+    ndf = Siren(args.xi__1_max, args.xi__2_max, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
     if args.i_ckpt is not None:
@@ -72,7 +72,7 @@ def train():
         sampler = MeshSampler(reference_midsurface.template_mesh, args.train_n_mesh_samples, args.train_temporal_sidelen)
         external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_n_mesh_samples, 3)
     else:
-        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'train')
+        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_max, args.xi__2_max, 'train')
         external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_spatial_sidelen**2, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     

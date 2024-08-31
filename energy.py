@@ -15,6 +15,7 @@ def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         velocity = jacobian(deformations, temporal_coords)[0]
         kinetic_energy = 0.5 * material.mass_area_density * torch.einsum('ijkl,ijkl->ij', velocity, velocity)
         mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(ref_geometry.a) #+ kinetic_energy
+        
     elif isinstance(material, NonLinearMaterial):
         d_1 = normalize((ref_geometry.a_1), dim=2)
         d_2 = torch.linalg.cross(ref_geometry.a_3, d_1)

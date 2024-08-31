@@ -11,8 +11,8 @@ def get_config_parser():
 
     # simulation parameters
     parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of the reference geometry; can be rectangle_xy, rectangle_xz,  cylinder, cone or mesh')
-    parser.add_argument('--xi__1_scale', type=float, default=2 * math.pi, help='scale for xi__1; 2 * pi for cylinder or cone, and 1 for rectangle or mesh')
-    parser.add_argument('--xi__2_scale', type=float, default=1, help='scale for xi__2; 1 for all reference geometries')
+    parser.add_argument('--xi__1_max', type=float, default=2 * math.pi, help='max value for xi__1; 2 * pi for cylinder or cone, and Lx for rectangle. min value for xi__1 is assumed to be 0')
+    parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
     parser.add_argument('--boundary_condition_name', type=str, help='name of the spatio-temporal boundary condition; can be top_left_fixed, top_left_top_right_drape for rectangle, and two_rims_compression for cylinder, and top_rim_fixed, top_rim_torsion for cone')
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
     

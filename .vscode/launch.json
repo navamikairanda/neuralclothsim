@@ -17,11 +17,9 @@
                 "-n", 
                 "napkin_debug",
                 "-m",
-                "material/linear_1.ini",
-                "--train_spatial_sidelen", 
-                "10",
-                "--train_temporal_sidelen", 
-                "2"
+                "material/canvas.ini",
+                //"--train_temporal_sidelen", 
+                //"2"
             ]
         },
         {

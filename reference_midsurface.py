@@ -45,7 +45,7 @@ class ReferenceMidSurface():
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
             self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
-            sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_scale, args.xi__2_scale, 'test')
+            sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_max, args.xi__2_max, 'test')
             dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
             curvilinear_coords, self.temporal_coords = next(iter(dataloader))
             vertices = self.midsurface(curvilinear_coords)[0]

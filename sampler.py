@@ -137,14 +137,14 @@ def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim
     return grid_coords
                        
 class GridSampler(Dataset):
-    def __init__(self, spatial_sidelen: int, temporal_sidelen: int, xi__1_scale: float, xi__2_scale: float, mode: Literal['train', 'test']):
+    def __init__(self, spatial_sidelen: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float, mode: Literal['train', 'test']):
         super().__init__()
         self.mode = mode
         self.spatial_sidelen = spatial_sidelen
         self.temporal_sidelen = temporal_sidelen
                 
-        self.xi__1_scale = xi__1_scale
-        self.xi__2_scale = xi__2_scale
+        self.xi__1_max = xi__1_max
+        self.xi__2_max = xi__2_max
         if self.mode == 'train':
             self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
             self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)
@@ -160,8 +160,8 @@ class GridSampler(Dataset):
         if self.mode == 'test': 
             curvilinear_coords = self.node_curvilinear_coords.clone()
             temporal_coords = self.node_temporal_coords.clone() 
-            curvilinear_coords[...,0] *= self.xi__1_scale 
-            curvilinear_coords[...,1] *= self.xi__2_scale
+            curvilinear_coords[...,0] *= self.xi__1_max 
+            curvilinear_coords[...,1] *= self.xi__2_max
         elif self.mode == 'train':            
             curvilinear_coords = self.cell_curvilinear_coords.clone() 
             temporal_coords = self.cell_temporal_coords.clone() 
@@ -171,8 +171,8 @@ class GridSampler(Dataset):
             temporal_coords += t_rand_temporal
             curvilinear_coords += t_rand_spatial
             
-            curvilinear_coords[...,0] *= self.xi__1_scale
-            curvilinear_coords[...,1] *= self.xi__2_scale
+            curvilinear_coords[...,0] *= self.xi__1_max
+            curvilinear_coords[...,1] *= self.xi__2_max
             curvilinear_coords.requires_grad_(True)
             temporal_coords.requires_grad_(True)
             
