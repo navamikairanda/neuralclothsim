@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 from config_parser import device
 
 # Parts of the code borrowed from Meta Platforms, Inc.
-from typing import Tuple, Union, Literal
+from typing import Tuple, Union
 from pytorch3d.structures import Meshes
 from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals
 from pytorch3d.ops.packed_to_padded import packed_to_padded
@@ -137,44 +137,34 @@ def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim
     return grid_coords
                        
 class GridSampler(Dataset):
-    def __init__(self, spatial_sidelen: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float, mode: Literal['train', 'test']):
+    def __init__(self, spatial_sidelen: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float):
         super().__init__()
-        self.mode = mode
         self.spatial_sidelen = spatial_sidelen
         self.temporal_sidelen = temporal_sidelen
                 
         self.xi__1_max = xi__1_max
         self.xi__2_max = xi__2_max
-        if self.mode == 'train':
-            self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
-            self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)
-        elif self.mode == 'test':
-            self.node_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=False, dim=1)
-            self.node_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=False, dim=2)
+        self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
+        self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)
             
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):    
         if idx > 0: raise IndexError
-        if self.mode == 'test': 
-            curvilinear_coords = self.node_curvilinear_coords.clone()
-            temporal_coords = self.node_temporal_coords.clone() 
-            curvilinear_coords[...,0] *= self.xi__1_max 
-            curvilinear_coords[...,1] *= self.xi__2_max
-        elif self.mode == 'train':            
-            curvilinear_coords = self.cell_curvilinear_coords.clone() 
-            temporal_coords = self.cell_temporal_coords.clone() 
-            
-            t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
-            t_rand_spatial = torch.rand([self.spatial_sidelen**2, 2], device=device) / self.spatial_sidelen
-            temporal_coords += t_rand_temporal
-            curvilinear_coords += t_rand_spatial
-            
-            curvilinear_coords[...,0] *= self.xi__1_max
-            curvilinear_coords[...,1] *= self.xi__2_max
-            curvilinear_coords.requires_grad_(True)
-            temporal_coords.requires_grad_(True)
+         
+        curvilinear_coords = self.cell_curvilinear_coords.clone() 
+        temporal_coords = self.cell_temporal_coords.clone() 
+        
+        t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
+        t_rand_spatial = torch.rand([self.spatial_sidelen**2, 2], device=device) / self.spatial_sidelen
+        temporal_coords += t_rand_temporal
+        curvilinear_coords += t_rand_spatial
+        
+        curvilinear_coords[...,0] *= self.xi__1_max
+        curvilinear_coords[...,1] *= self.xi__2_max
+        curvilinear_coords.requires_grad_(True)
+        temporal_coords.requires_grad_(True)
             
         temporal_coords = temporal_coords.repeat_interleave(self.spatial_sidelen**2, 0)        
         return curvilinear_coords, temporal_coords            

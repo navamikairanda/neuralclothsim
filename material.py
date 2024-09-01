@@ -2,10 +2,6 @@ import torch
 from typing import NamedTuple
 from strain import Strain
 from reference_geometry import ReferenceGeometry
-
-class MaterialOrthotropy(NamedTuple):
-    d_1: torch.Tensor
-    d_2: torch.Tensor
     
 class Material():
     def __init__(self, mass_area_density: float, thickness: float):
@@ -38,7 +34,11 @@ class LinearMaterial(Material):
         hyperelastic_strain_energy = 0.5 * (self.D * (strain.epsilon_1_1 * n__1__1 + strain.epsilon_1_2 * n__1__2 + strain.epsilon_1_2 * n__2__1 + strain.epsilon_2_2 * n__2__2) + self.B * (strain.kappa_1_1 * m__1__1 + strain.kappa_1_2 * m__1__2 + strain.kappa_1_2 * m__2__1 + strain.kappa_2_2 * m__2__2))
         
         return hyperelastic_strain_energy
-        
+
+class MaterialOrthotropy(NamedTuple):
+    d_1: torch.Tensor
+    d_2: torch.Tensor
+            
 class NonLinearMaterial(Material):
     def __init__(self, args):
         super().__init__(args.mass_area_density, args.thickness)

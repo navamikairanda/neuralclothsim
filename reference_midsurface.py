@@ -4,12 +4,10 @@ import torch.nn as nn
 import numpy as np
 from tqdm import trange
 from pytorch3d.io import save_obj, load_obj
-from torch.utils.data import DataLoader
 
 from config_parser import device
-from sampler import GridSampler
-from diff_operators import jacobian
 from modules import SirenReference, GELUReference
+from sampler import get_mgrid
 from sampler import sample_points_from_meshes
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
@@ -40,14 +38,16 @@ class ReferenceMidSurface():
             self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)
             if args.boundary_condition_name == 'mesh_vertices':
                 self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.boundary_condition_vertices]
-            self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, args.test_spatial_sidelen, tb_writer)
+            self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, tb_writer)
             reference_mlp_verts_pred = self.midsurface(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
-            self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
+            #self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
+            self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
-            sampler = GridSampler(args.test_spatial_sidelen, args.test_temporal_sidelen, args.xi__1_max, args.xi__2_max, 'test')
-            dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
-            curvilinear_coords, self.temporal_coords = next(iter(dataloader))
+            self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(args.test_spatial_sidelen**2, 0)[None]
+            curvilinear_coords = get_mgrid((args.test_spatial_sidelen, args.test_spatial_sidelen), stratified=False, dim=2)[None]
+            curvilinear_coords[...,0] *= args.xi__1_max
+            curvilinear_coords[...,1] *= args.xi__2_max
             vertices = self.midsurface(curvilinear_coords)[0]
             faces = torch.tensor(generate_mesh_topology(args.test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)

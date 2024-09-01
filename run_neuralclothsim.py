@@ -72,7 +72,7 @@ def train():
         sampler = MeshSampler(reference_midsurface.template_mesh, args.train_n_mesh_samples, args.train_temporal_sidelen)
         external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_n_mesh_samples, 3)
     else:
-        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_max, args.xi__2_max, 'train')
+        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_max, args.xi__2_max)
         external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_spatial_sidelen**2, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
