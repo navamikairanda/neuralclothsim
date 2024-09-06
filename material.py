@@ -109,24 +109,14 @@ class NonLinearMaterial(Material):
             eta_second_derivative_1_E11_22_clamped = self.compute_eta_second_derivative(1, E11_clamped * E22_clamped)
             
             hyperelastic_strain_energy += ~E12_valid * (2 * self.G12 * E12_clamped * eta_first_derivative_3_E12_12_clamped * (E12 - E12_clamped) + 0.5 * (2 * self.G12 * eta_first_derivative_3_E12_12_clamped + 4 * self.G12 * E12_clamped ** 2 * self.compute_eta_second_derivative(3, E12_clamped ** 2)) * (E12 - E12_clamped) ** 2)
-            
             hyperelastic_strain_energy += ~E11_valid * ((self.a11 * E11_clamped * eta_first_derivative_0_E11_11_clamped + self.a12 * E22_clamped * eta_first_derivative_1_E11_22_clamped) * (E11 - E11_clamped) + 0.5 * (self.a11 * eta_first_derivative_0_E11_11_clamped + 2 * self.a11 * E11_clamped ** 2 * self.compute_eta_second_derivative(0, E11_clamped ** 2) + self.a12 * E22_clamped ** 2 * eta_second_derivative_1_E11_22_clamped) * (E11 - E11_clamped) ** 2)
-            
             hyperelastic_strain_energy += ~E22_valid * ((self.a22 * E22_clamped * eta_first_derivative_2_E22_22_clamped + self.a12 * E11_clamped * eta_first_derivative_1_E11_22_clamped) * (E22 - E22_clamped) + 0.5 * (self.a22 * eta_first_derivative_2_E22_22_clamped + 2 * self.a22 * E22_clamped ** 2 * self.compute_eta_second_derivative(2, E22_clamped ** 2) + self.a12 * E11_clamped ** 2 * eta_second_derivative_1_E11_22_clamped) * (E22 - E22_clamped) ** 2)
-            
-            #Where both are not valid, the energy is zero
             hyperelastic_strain_energy += (~E11_valid * ~E22_valid) * (self.a12 * eta_first_derivative_1_E11_22_clamped + self.a12 * E11_clamped * E22_clamped * eta_second_derivative_1_E11_22_clamped) * (E11 - E11_clamped) * (E22 - E22_clamped)
             
             if not i % 200:
                 tb_writer.add_histogram('param/E11_valid', E11_valid, i)
                 tb_writer.add_histogram('param/E12_valid', E12_valid, i)
                 tb_writer.add_histogram('param/E22_valid', E22_valid, i)
-                tb_writer.add_histogram('param/E11_min_valid', E11 > self.E_11_min, i)
-                tb_writer.add_histogram('param/E11_max_valid', E11 < self.E_11_max, i)
-                tb_writer.add_histogram('param/E12_min_valid', E12 > self.E_12_min, i)
-                tb_writer.add_histogram('param/E12_max_valid', E12 < self.E_12_max, i)
-                tb_writer.add_histogram('param/E22_min_valid', E22 > self.E_22_min, i)
-                tb_writer.add_histogram('param/E22_max_valid', E22 < self.E_22_max, i)
             
         if not i % 200:
             tb_writer.add_histogram('param/E11', E11, i)
