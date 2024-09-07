@@ -6,8 +6,8 @@ from plot_helper import get_plot_grid_tensor
 from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 
-    def __init__(self, curvilinear_coords: torch.Tensor, spatial_sidelen: int, temporal_sidelen: int, reference_midsurface: ReferenceMidSurface, tb_writer, debug=False):
-        self.curvilinear_coords, self.spatial_sidelen, self.temporal_sidelen = curvilinear_coords, spatial_sidelen, temporal_sidelen
+    def __init__(self, curvilinear_coords: torch.Tensor, n_spatial_samples: int, temporal_sidelen: int, reference_midsurface: ReferenceMidSurface, tb_writer, debug=False):
+        self.curvilinear_coords, self.n_spatial_samples, self.temporal_sidelen = curvilinear_coords, n_spatial_samples, temporal_sidelen
         self.midsurface_positions = reference_midsurface.midsurface(self.curvilinear_coords)
         self.base_vectors()
         self.metric_tensor()
@@ -22,8 +22,8 @@ class ReferenceGeometry():
         self.a__1 = self.a__1.repeat(1, self.temporal_sidelen, 1)
         self.a__2 = self.a__2.repeat(1, self.temporal_sidelen, 1)
         if debug:       
-            tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0], spatial_sidelen))
-            tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:curvilinear_coords.shape[1]], self.b_1_2[0,:curvilinear_coords.shape[1]],self.b_2_1[0,:curvilinear_coords.shape[1]], self.b_2_2[0,:curvilinear_coords.shape[1]], spatial_sidelen))            
+            tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]))
+            tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:n_spatial_samples], self.b_1_2[0,:n_spatial_samples],self.b_2_1[0,:n_spatial_samples], self.b_2_2[0,:n_spatial_samples]))            
             
     def base_vectors(self):
         base_vectors = jacobian(self.midsurface_positions, self.curvilinear_coords)[0]

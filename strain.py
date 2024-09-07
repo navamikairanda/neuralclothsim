@@ -95,7 +95,7 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     normal_difference = torch.einsum('ij,ijk->ijk', w_1, ref_geometry.a__1) + torch.einsum('ij,ijk->ijk', w_2, ref_geometry.a__2) + torch.einsum('ij,ijk->ijk', w_3, ref_geometry.a_3)
     
     if not i % 200:
-        tb_writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1[0,:ref_geometry.spatial_sidelen**2], epsilon_1_2[0,:ref_geometry.spatial_sidelen**2], epsilon_1_2[0,:ref_geometry.spatial_sidelen**2], epsilon_2_2[0,:ref_geometry.spatial_sidelen**2], ref_geometry.spatial_sidelen), i)
-        tb_writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,:ref_geometry.spatial_sidelen**2], kappa_1_2[0,:ref_geometry.spatial_sidelen**2], kappa_1_2[0,:ref_geometry.spatial_sidelen**2], kappa_2_2[0,:ref_geometry.spatial_sidelen**2], ref_geometry.spatial_sidelen), i)
+        tb_writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1[0,:ref_geometry.n_spatial_samples], epsilon_1_2[0,:ref_geometry.n_spatial_samples], epsilon_1_2[0,:ref_geometry.n_spatial_samples], epsilon_2_2[0,:ref_geometry.n_spatial_samples]), i)
+        tb_writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,:ref_geometry.n_spatial_samples], kappa_1_2[0,:ref_geometry.n_spatial_samples], kappa_1_2[0,:ref_geometry.n_spatial_samples], kappa_2_2[0,:ref_geometry.n_spatial_samples]), i)
     
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2), normal_difference

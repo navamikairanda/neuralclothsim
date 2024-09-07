@@ -1,4 +1,5 @@
 import os
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -44,12 +45,13 @@ class ReferenceMidSurface():
             #self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
             self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
-            self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(args.test_spatial_sidelen**2, 0)[None]
-            curvilinear_coords = get_mgrid((args.test_spatial_sidelen, args.test_spatial_sidelen), stratified=False, dim=2)[None]
+            self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(args.test_n_spatial_samples, 0)[None]
+            test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
+            curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
             curvilinear_coords[...,0] *= args.xi__1_max
             curvilinear_coords[...,1] *= args.xi__2_max
             vertices = self.midsurface(curvilinear_coords)[0]
-            faces = torch.tensor(generate_mesh_topology(args.test_spatial_sidelen), device=device)
+            faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
             self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
         tb_writer.add_mesh('reference_state_fitted', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())

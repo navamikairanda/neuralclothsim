@@ -1,3 +1,4 @@
+import math
 import torch
 import numpy as np
 from torch.utils.data import Dataset
@@ -137,15 +138,15 @@ def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim
     return grid_coords
                        
 class GridSampler(Dataset):
-    def __init__(self, spatial_sidelen: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float):
+    def __init__(self, n_spatial_samples: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float):
         super().__init__()
-        self.spatial_sidelen = spatial_sidelen
+        self.n_spatial_samples = n_spatial_samples
         self.temporal_sidelen = temporal_sidelen
                 
         self.xi__1_max = xi__1_max
         self.xi__2_max = xi__2_max
         self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
-        self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)
+        self.cell_curvilinear_coords = get_mgrid((math.isqrt(n_spatial_samples), math.isqrt(n_spatial_samples)), stratified=True, dim=2)
             
     def __len__(self):
         return 1
@@ -157,7 +158,7 @@ class GridSampler(Dataset):
         temporal_coords = self.cell_temporal_coords.clone() 
         
         t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
-        t_rand_spatial = torch.rand([self.spatial_sidelen**2, 2], device=device) / self.spatial_sidelen
+        t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / math.isqrt(self.n_spatial_samples)
         temporal_coords += t_rand_temporal
         curvilinear_coords += t_rand_spatial
         
@@ -166,7 +167,7 @@ class GridSampler(Dataset):
         curvilinear_coords.requires_grad_(True)
         temporal_coords.requires_grad_(True)
             
-        temporal_coords = temporal_coords.repeat_interleave(self.spatial_sidelen**2, 0)        
+        temporal_coords = temporal_coords.repeat_interleave(self.n_spatial_samples, 0)        
         return curvilinear_coords, temporal_coords            
 
 class MeshSampler(Dataset):

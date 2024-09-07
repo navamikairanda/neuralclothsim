@@ -72,14 +72,14 @@ def train():
         sampler = MeshSampler(reference_midsurface.template_mesh, args.train_n_mesh_samples, args.train_temporal_sidelen)
         external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_n_mesh_samples, 3)
     else:
-        sampler = GridSampler(args.train_spatial_sidelen, args.train_temporal_sidelen, args.xi__1_max, args.xi__2_max)
-        external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_spatial_sidelen**2, 3)
+        sampler = GridSampler(args.train_n_spatial_samples, args.train_temporal_sidelen, args.xi__1_max, args.xi__2_max)
+        external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_n_spatial_samples, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
     tb_writer.add_text('args', str(args))
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
-        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_spatial_sidelen, args.train_temporal_sidelen, reference_midsurface, tb_writer, args.debug)
+        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_n_spatial_samples, args.train_temporal_sidelen, reference_midsurface, tb_writer, args.debug)
         deformations = ndf(ref_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)

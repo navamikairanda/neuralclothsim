@@ -34,6 +34,7 @@ def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         external_energy_bottom = torch.einsum('ijk,ijk->ij', external_load, deformations_bottom)
         mechanical_energy = ((hyperelastic_strain_energy_top - external_energy_top) + 4 * (hyperelastic_strain_energy_mid - external_energy_mid) + (external_energy_bottom - hyperelastic_strain_energy_bottom)) * torch.sqrt(ref_geometry.a) / 6.        
     if not i % 200:
-        tb_writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,:ref_geometry.spatial_sidelen**2], ref_geometry.spatial_sidelen), i)
+        # Visualize the strain energy for the deformed surface at t=0
+        tb_writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,:ref_geometry.n_spatial_samples]), i)
         tb_writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i)          
     return mechanical_energy
