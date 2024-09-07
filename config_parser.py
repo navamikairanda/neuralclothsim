@@ -20,7 +20,7 @@ def get_config_parser():
     parser.add_argument('--reference_geometry_source', type=str, default='assets/meshes/flag.obj', help='source file for reference geometry')
     parser.add_argument('--reference_mlp_n_iterations', type=int, default=5000, help='number of iterations for fitting the reference geometry MLP')
     parser.add_argument('--reference_mlp_lrate', type=float, default=1e-5, help='learning rate for the reference geometry MLP')
-    parser.add_argument('--boundary_condition_vertices', type=int, nargs='+', help='vertices for boundary condition on the reference geometry')
+    parser.add_argument('--reference_boundary_vertices', type=int, nargs='+', help='vertices for boundary condition on the reference geometry')
     
     # material parameters
     parser.add('-m', '--material_filepath', is_config_file=True, default='material/canvas.ini', help='name of the material')
@@ -56,10 +56,8 @@ def get_config_parser():
     parser.add_argument('--E_12_max', type=float, help='E_12_max')
     
     # training options
-    #parser.add_argument('--train_spatial_sidelen', type=int, default=20, help='square_root(N_omega), number of spatial grid samples along each curvilinear coordinate used for training when reference geometry is an analytical surface')
-    #parser.add_argument('--train_n_mesh_samples', type=int, default=100, help='number of samples used for training when reference geometry is a mesh')
     parser.add_argument('--train_n_spatial_samples', type=int, default=100, help='N_omega, number of samples used for training; when reference geometry is an analytical surface, number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
-    parser.add_argument('--train_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
+    parser.add_argument('--train_n_temporal_samples', type=int, default=20, help='N_t, number of temporal samples, at training')
     parser.add_argument('--lrate', type=float, default=1e-5, help='learning rate')
     parser.add_argument('--decay_lrate', action='store_true', help='whether to decay learning rate')
     parser.add_argument('--lrate_decay_steps', type=int, default=10000, help='learning rate decay steps')
@@ -79,7 +77,7 @@ def get_config_parser():
     parser.add_argument('--test_only', action='store_true', help='evaluate NDF from i_ckpt and save resulting meshes and videos')
     parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples used for evaluation will match the vertices in the mesh') 
     # when reference geometry is a mesh, the same vertices and faces are used for evaluation as the input mesh
-    parser.add_argument('--test_temporal_sidelen', type=int, default=20, help='N_t, number of temporal samples, at training')
+    parser.add_argument('--test_n_temporal_samples', type=int, default=20, help='N_t, number of temporal samples, at training')
     
     # reload options
     parser.add_argument("--i_ckpt", type=int, help='weight checkpoint to reload')

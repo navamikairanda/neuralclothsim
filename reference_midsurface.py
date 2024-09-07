@@ -38,14 +38,14 @@ class ReferenceMidSurface():
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
             self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)
             if args.boundary_condition_name == 'mesh_vertices':
-                self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.boundary_condition_vertices]
+                self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.reference_boundary_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, tb_writer)
             reference_mlp_verts_pred = self.midsurface(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
-            #self.temporal_coords = torch.linspace(0, 1, args.test_temporal_sidelen, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
-            self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
+            #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
+            self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1).repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
-            self.temporal_coords = get_mgrid((args.test_temporal_sidelen,), stratified=False, dim=1).repeat_interleave(args.test_n_spatial_samples, 0)[None]
+            self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1).repeat_interleave(args.test_n_spatial_samples, 0)[None]
             test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
             curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
             curvilinear_coords[...,0] *= args.xi__1_max

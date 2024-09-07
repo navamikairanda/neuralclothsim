@@ -16,12 +16,12 @@ from reference_midsurface import ReferenceMidSurface
 from file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
-def test(ndf: Siren, test_temporal_sidelen: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface, tb_writer: SummaryWriter):
+def test(ndf: Siren, test_n_temporal_samples: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface, tb_writer: SummaryWriter):
     
-    test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_temporal_sidelen, 1), reference_midsurface.temporal_coords)
-    test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_temporal_sidelen, 1) + test_deformations
-    tb_writer.add_mesh('simulated_states', test_deformed_positions.view(test_temporal_sidelen, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_temporal_sidelen, 1, 1), global_step=i)
-    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_temporal_sidelen, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
+    test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_n_temporal_samples, 1), reference_midsurface.temporal_coords)
+    test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_n_temporal_samples, 1) + test_deformations
+    tb_writer.add_mesh('simulated_states', test_deformed_positions.view(test_n_temporal_samples, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_n_temporal_samples, 1, 1), global_step=i)
+    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_n_temporal_samples, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
         
 def train():  
     args = get_config_parser().parse_args()
@@ -59,7 +59,7 @@ def train():
         global_step = 0
     
     if args.test_only:
-        test(ndf, args.test_temporal_sidelen, meshes_dir, f'{global_step}', reference_midsurface, tb_writer)
+        test(ndf, args.test_n_temporal_samples, meshes_dir, f'{global_step}', reference_midsurface, tb_writer)
         return
     
     if args.material_type == 'linear':            
@@ -69,17 +69,17 @@ def train():
     external_load = torch.tensor(args.gravity_acceleration, device=device) * material.mass_area_density
 
     if args.reference_geometry_name == 'mesh':
-        sampler = MeshSampler(args.train_n_spatial_samples, args.train_temporal_sidelen, reference_midsurface.template_mesh)
+        sampler = MeshSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface.template_mesh)
     else:
-        sampler = GridSampler(args.train_n_spatial_samples, args.train_temporal_sidelen, args.xi__1_max, args.xi__2_max)
+        sampler = GridSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, args.xi__1_max, args.xi__2_max)
 
-    external_load = external_load.expand(1, args.train_temporal_sidelen * args.train_n_spatial_samples, 3)
+    external_load = external_load.expand(1, args.train_n_temporal_samples * args.train_n_spatial_samples, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
     tb_writer.add_text('args', str(args))
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
-        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_n_spatial_samples, args.train_temporal_sidelen, reference_midsurface, tb_writer, args.debug)
+        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer, args.debug)
         deformations = ndf(ref_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)
@@ -114,7 +114,7 @@ def train():
             }, os.path.join(weights_dir, f'{i:06d}.tar'))
             
         if not i % args.i_test:            
-            test(ndf, args.test_temporal_sidelen, meshes_dir, i, reference_midsurface, tb_writer)
+            test(ndf, args.test_n_temporal_samples, meshes_dir, i, reference_midsurface, tb_writer)
     tb_writer.flush()
     tb_writer.close()
 
