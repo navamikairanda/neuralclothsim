@@ -84,7 +84,7 @@ def sample_points_from_meshes(
     face_uvs = meshes.textures.verts_uvs_padded()[0][meshes.textures.faces_uvs_padded()[0]]
     uv0, uv1, uv2 = face_uvs[:, 0], face_uvs[:, 1], face_uvs[:, 2]
     
-    # Use the barycentric coords to get the uv coodinate for the samepled point.
+    # Use the barycentric coords to get the uv coodinate for the sampled point.
     a_uv = uv0[sample_face_idxs]  # (N, num_samples, 3)
     b_uv = uv1[sample_face_idxs]
     c_uv = uv2[sample_face_idxs]
@@ -136,64 +136,57 @@ def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim
         raise NotImplementedError('Not implemented for dim=%d' % dim)
     grid_coords = torch.Tensor(grid_coords).to(device).view(-1, dim)
     return grid_coords
-                       
-class GridSampler(Dataset):
-    def __init__(self, n_spatial_samples: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float):
-        super().__init__()
+
+class Sampler(Dataset):
+    def __init__(self, n_spatial_samples: int, temporal_sidelen: int):
         self.n_spatial_samples = n_spatial_samples
         self.temporal_sidelen = temporal_sidelen
+        
+        self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
+    
+    def __len__(self):
+        return 1
+    
+    def get_temporal_coords(self):
+        temporal_coords = self.cell_temporal_coords.clone()
+        t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
+        temporal_coords += t_rand_temporal
+        temporal_coords.requires_grad_(True)    
+        temporal_coords = temporal_coords.repeat_interleave(self.n_spatial_samples, 0)  
+        return temporal_coords
+                           
+class GridSampler(Sampler):
+    def __init__(self, n_spatial_samples: int, temporal_sidelen: int, xi__1_max: float, xi__2_max: float):
+        super().__init__(n_spatial_samples, temporal_sidelen)
                 
         self.xi__1_max = xi__1_max
         self.xi__2_max = xi__2_max
-        self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
-        self.cell_curvilinear_coords = get_mgrid((math.isqrt(n_spatial_samples), math.isqrt(n_spatial_samples)), stratified=True, dim=2)
-            
-    def __len__(self):
-        return 1
+        
+        self.cell_curvilinear_coords = get_mgrid((math.isqrt(n_spatial_samples), math.isqrt(n_spatial_samples)), stratified=True, dim=2)            
 
     def __getitem__(self, idx):    
         if idx > 0: raise IndexError
          
-        curvilinear_coords = self.cell_curvilinear_coords.clone() 
-        temporal_coords = self.cell_temporal_coords.clone() 
+        curvilinear_coords = self.cell_curvilinear_coords.clone()        
         
-        t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
-        t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / math.isqrt(self.n_spatial_samples)
-        temporal_coords += t_rand_temporal
+        t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / math.isqrt(self.n_spatial_samples)        
         curvilinear_coords += t_rand_spatial
         
         curvilinear_coords[...,0] *= self.xi__1_max
         curvilinear_coords[...,1] *= self.xi__2_max
         curvilinear_coords.requires_grad_(True)
-        temporal_coords.requires_grad_(True)
-            
-        temporal_coords = temporal_coords.repeat_interleave(self.n_spatial_samples, 0)        
-        return curvilinear_coords, temporal_coords            
+      
+        return curvilinear_coords, self.get_temporal_coords()            
 
-class MeshSampler(Dataset):
-    def __init__(self, reference_mesh: Meshes, n_samples: int, temporal_sidelen: int):
-        super().__init__()
+class MeshSampler(Sampler):
+    def __init__(self, n_spatial_samples: int, temporal_sidelen: int, reference_mesh: Meshes):
+        super().__init__(n_spatial_samples, temporal_sidelen)
         self.reference_mesh = reference_mesh
-        self.n_samples = n_samples
-        self.temporal_sidelen = temporal_sidelen
-                
-        self.cell_temporal_coords = get_mgrid((self.temporal_sidelen,), stratified=True, dim=1)
             
-    def __len__(self):
-        return 1
-
     def __getitem__(self, idx):    
         if idx > 0: raise IndexError
 
-        curvilinear_coords = sample_points_from_meshes(self.reference_mesh, self.n_samples)[1][0]
-        
-        temporal_coords = self.cell_temporal_coords.clone() 
-        
-        t_rand_temporal = torch.rand([self.temporal_sidelen, 1], device=device) / self.temporal_sidelen
-        temporal_coords += t_rand_temporal
-        
+        curvilinear_coords = sample_points_from_meshes(self.reference_mesh, self.n_spatial_samples)[1][0]            
         curvilinear_coords.requires_grad_(True)
-        temporal_coords.requires_grad_(True)
-            
-        temporal_coords = temporal_coords.repeat_interleave(self.n_samples, 0)        
-        return curvilinear_coords, temporal_coords            
+                    
+        return curvilinear_coords, self.get_temporal_coords()
