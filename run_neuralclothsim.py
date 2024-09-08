@@ -87,7 +87,7 @@ def train():
         
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
-        reference_geometry(curvilinear_coords)
+        reference_geometry(curvilinear_coords, i)
         deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)
