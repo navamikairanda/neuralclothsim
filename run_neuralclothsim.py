@@ -5,7 +5,7 @@ from tqdm import trange
 from shutil import copyfile
 
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+import tb
 from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler, CurvilinearSpace
 from reference_geometry import ReferenceGeometry
@@ -18,11 +18,11 @@ from boundary import Boundary
 from file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
-def test(ndf: Siren, test_n_temporal_samples: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface, tb_writer: SummaryWriter):
+def test(ndf: Siren, test_n_temporal_samples: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface):
     
     test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_n_temporal_samples, 1), reference_midsurface.temporal_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_n_temporal_samples, 1) + test_deformations
-    tb_writer.add_mesh('simulated_states', test_deformed_positions.view(test_n_temporal_samples, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_n_temporal_samples, 1, 1), global_step=i)
+    tb.writer.add_mesh('simulated_states', test_deformed_positions.view(test_n_temporal_samples, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_n_temporal_samples, 1, 1), global_step=i)
     save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_n_temporal_samples, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
         
 def train():  
@@ -33,8 +33,8 @@ def train():
         
     for dir in [log_dir, weights_dir]:
         os.makedirs(dir, exist_ok=True)
-    
-    tb_writer = SummaryWriter(log_dir)
+
+    tb.set_tensorboard_writer(log_dir)        
     logger = get_logger(log_dir, args.expt_name)
     logger.info(args)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
@@ -43,8 +43,8 @@ def train():
         args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
     
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
-    reference_midsurface = ReferenceMidSurface(args, tb_writer, curvilinear_space)
-    reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer)
+    reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
+    reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface)
     boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, reference_midsurface.boundary_curvilinear_coords)
     
     ndf = Siren(boundary, in_features=4 if args.reference_geometry_name in ['cylinder', 'cone'] else 3).to(device)
@@ -67,7 +67,7 @@ def train():
         global_step = 0
     
     if args.test_only:
-        test(ndf, args.test_n_temporal_samples, meshes_dir, f'{global_step}', reference_midsurface, tb_writer)
+        test(ndf, args.test_n_temporal_samples, meshes_dir, f'{global_step}', reference_midsurface)
         return
     
     material = LinearMaterial(args) if args.material_type == 'linear' else NonLinearMaterial(args)
@@ -81,14 +81,14 @@ def train():
     external_load = external_load.expand(1, args.train_n_temporal_samples * args.train_n_spatial_samples, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
-    tb_writer.add_text('args', str(args))
+    tb.writer.add_text('args', str(args))
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
         reference_geometry(curvilinear_coords)
         deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)
-        mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, tb_writer, i)
+        mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, i)
         physics_loss = mechanical_energy.mean()
 
         loss = physics_loss + collision_loss
@@ -97,10 +97,10 @@ def train():
         loss.backward()
         optimizer.step()    
                
-        tb_writer.add_scalar('loss/total_loss', loss, i)
-        tb_writer.add_scalar('loss/physics_loss', physics_loss, i)
-        tb_writer.add_scalar('loss/collision_loss', collision_loss, i)
-        tb_writer.add_scalar('param/mean_deformation', deformations.mean(), i)  
+        tb.writer.add_scalar('loss/total_loss', loss, i)
+        tb.writer.add_scalar('loss/physics_loss', physics_loss, i)
+        tb.writer.add_scalar('loss/collision_loss', collision_loss, i)
+        tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)  
         if args.decay_lrate:
             new_lrate = args.lrate * args.lrate_decay_rate ** (i / args.lrate_decay_steps)
             for param_group in optimizer.param_groups:
@@ -118,9 +118,9 @@ def train():
             }, os.path.join(weights_dir, f'{i:06d}.tar'))
             
         if not i % args.i_test:            
-            test(ndf, args.test_n_temporal_samples, meshes_dir, i, reference_midsurface, tb_writer)
-    tb_writer.flush()
-    tb_writer.close()
+            test(ndf, args.test_n_temporal_samples, meshes_dir, i, reference_midsurface)
+    tb.writer.flush()
+    tb.writer.close()
 
 if __name__=='__main__':
     train()

@@ -1,16 +1,16 @@
 import torch
 from torch.nn.functional import normalize
 
+import tb
 from diff_operators import jacobian
 from plot_helper import get_plot_grid_tensor
 from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, reference_midsurface: ReferenceMidSurface, tb_writer):
+    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, reference_midsurface: ReferenceMidSurface):
         self.n_spatial_samples = n_spatial_samples 
         self.n_temporal_samples = n_temporal_samples
         self.reference_midsurface = reference_midsurface
-        self.tb_writer = tb_writer    
 
     def __call__(self, curvilinear_coords: torch.Tensor, debug=False):
         self.curvilinear_coords = curvilinear_coords
@@ -28,8 +28,8 @@ class ReferenceGeometry():
         self.a__1 = self.a__1.repeat(1, self.n_temporal_samples, 1)
         self.a__2 = self.a__2.repeat(1, self.n_temporal_samples, 1)
         if debug:       
-            self.tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]))
-            self.tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:self.n_spatial_samples], self.b_1_2[0,:self.n_spatial_samples],self.b_2_1[0,:self.n_spatial_samples], self.b_2_2[0,:self.n_spatial_samples]))            
+            tb.writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]))
+            tb.writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:self.n_spatial_samples], self.b_1_2[0,:self.n_spatial_samples],self.b_2_1[0,:self.n_spatial_samples], self.b_2_2[0,:self.n_spatial_samples]))            
             
     def base_vectors(self):
         base_vectors = jacobian(self.midsurface_positions, self.curvilinear_coords)[0]

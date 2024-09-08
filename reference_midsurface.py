@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import trange
 from pytorch3d.io import save_obj, load_obj
 
+import tb
 from config_parser import device
 from modules import GELUReference
 from sampler import get_mgrid, sample_points_from_meshes
@@ -29,7 +30,7 @@ def generate_mesh_topology(spatial_sidelen):
     return np.concatenate(all_faces, axis=0)
 
 class ReferenceMidSurface():
-    def __init__(self, args, tb_writer, curvilinear_space):
+    def __init__(self, args, curvilinear_space):
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
         self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
@@ -39,7 +40,7 @@ class ReferenceMidSurface():
             self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)
             if args.boundary_condition_name == 'mesh_vertices':
                 self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.reference_boundary_vertices]
-            self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, tb_writer)
+            self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations)
             reference_mlp_verts_pred = self(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
             #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
@@ -54,10 +55,10 @@ class ReferenceMidSurface():
             faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
             self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
-        tb_writer.add_mesh('reference_state_fitted', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
+        tb.writer.add_mesh('reference_state_fitted', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
         save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state_fitted.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])
         
-    def fit_reference_mlp(self, reference_mlp_lrate, reference_mlp_n_iterations, tb_writer):
+    def fit_reference_mlp(self, reference_mlp_lrate, reference_mlp_n_iterations):
         self.reference_mlp = GELUReference(in_features=2, hidden_features=512, out_features=3, hidden_layers=5).to(device)
         reference_optimizer = torch.optim.Adam(lr=reference_mlp_lrate, params=self.reference_mlp.parameters())
         loss_fn = nn.L1Loss()        
@@ -68,7 +69,7 @@ class ReferenceMidSurface():
             loss = loss_fn(self.reference_mlp(uvs), verts)
             loss.backward()
             reference_optimizer.step()
-            tb_writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
+            tb.writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
         
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 

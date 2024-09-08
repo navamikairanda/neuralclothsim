@@ -1,5 +1,6 @@
 import torch
 from typing import NamedTuple
+import tb
 from strain import Strain
 from reference_geometry import ReferenceGeometry
     
@@ -71,15 +72,15 @@ class NonLinearMaterial(Material):
             eta_second_derivative += (self.mu[j][i] * (self.alpha[j][i] - 1) * (x + 1) ** (self.alpha[j][i] - 2))
         return eta_second_derivative
     
-    def strain_cutoff_extrapolation(self, E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, tb_writer, i):        
+    def strain_cutoff_extrapolation(self, E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i):        
         E11_valid = torch.logical_and(E11 > self.E_11_min, E11 < self.E_11_max)
         E12_valid = torch.logical_and(E12 > self.E_12_min, E12 < self.E_12_max)
         E22_valid = torch.logical_and(E22 > self.E_22_min, E22 < self.E_22_max)
         
         if not i % 200:
-            tb_writer.add_histogram('param/E11_valid', E11_valid, i)
-            tb_writer.add_histogram('param/E12_valid', E12_valid, i)
-            tb_writer.add_histogram('param/E22_valid', E22_valid, i)
+            tb.writer.add_histogram('param/E11_valid', E11_valid, i)
+            tb.writer.add_histogram('param/E12_valid', E12_valid, i)
+            tb.writer.add_histogram('param/E22_valid', E22_valid, i)
                 
         eta_first_derivative_3_E12_12_clamped = self.compute_eta_first_derivative(3, E12_clamped ** 2)
         eta_first_derivative_2_E22_22_clamped = self.compute_eta_first_derivative(2, E22_clamped ** 2)
@@ -94,7 +95,7 @@ class NonLinearMaterial(Material):
         
         return extrapolated_hyperelastic_strain_energy
             
-    def compute_internal_energy(self, strain: Strain, ref_geometry: ReferenceGeometry, material_directions: MaterialOrthotropy, tb_writer, i: int, xi__3: float) -> torch.Tensor:
+    def compute_internal_energy(self, strain: Strain, ref_geometry: ReferenceGeometry, material_directions: MaterialOrthotropy, i: int, xi__3: float) -> torch.Tensor:
         # _ob are the strains in the original basis
         # Eq. (22)
         E11_ob = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
@@ -117,11 +118,11 @@ class NonLinearMaterial(Material):
             E22_clamped = torch.clamp(E22, self.E_22_min, self.E_22_max)
             
             hyperelastic_strain_energy = self.a11 * 0.5 * self.compute_eta(0, E11_clamped ** 2) + self.a12 * self.compute_eta(1, E11_clamped * E22_clamped) + self.a22 * 0.5 * self.compute_eta(2, E22_clamped ** 2) + self.G12 * self.compute_eta(3, E12_clamped ** 2)            
-            hyperelastic_strain_energy += self.strain_cutoff_extrapolation(E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, tb_writer, i)          
+            hyperelastic_strain_energy += self.strain_cutoff_extrapolation(E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i)          
             
         if not i % 200:
-            tb_writer.add_histogram('param/E11', E11, i)
-            tb_writer.add_histogram('param/E12', E12, i)
-            tb_writer.add_histogram('param/E22', E22, i)
+            tb.writer.add_histogram('param/E11', E11, i)
+            tb.writer.add_histogram('param/E12', E12, i)
+            tb.writer.add_histogram('param/E22', E22, i)
         
         return hyperelastic_strain_energy
