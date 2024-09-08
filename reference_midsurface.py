@@ -33,6 +33,7 @@ class ReferenceMidSurface():
     def __init__(self, args, tb_writer):
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
+        self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
         if args.reference_geometry_name in ['mesh']:
             vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
@@ -43,14 +44,14 @@ class ReferenceMidSurface():
             reference_mlp_verts_pred = self.midsurface(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
             #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
-            self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1).repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
+            self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
-            self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1).repeat_interleave(args.test_n_spatial_samples, 0)[None]
+            self.temporal_coords = self.temporal_coords.repeat_interleave(args.test_n_spatial_samples, 0)[None]
             test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
             curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
             curvilinear_coords[...,0] *= args.xi__1_max
             curvilinear_coords[...,1] *= args.xi__2_max
-            vertices = self.midsurface(curvilinear_coords)[0]
+            vertices = self(curvilinear_coords)[0]
             faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
             self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
@@ -71,7 +72,7 @@ class ReferenceMidSurface():
             reference_optimizer.step()
             tb_writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
         
-    def midsurface(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
+    def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 
         xi__2 = curvilinear_coords[...,1]
         if self.reference_geometry_name == 'rectangle_xy': #vertical

@@ -38,6 +38,7 @@ def train():
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
      
     reference_midsurface = ReferenceMidSurface(args, tb_writer)
+    reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer)
     
     ndf = Siren(args.xi__1_max, args.xi__2_max, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
@@ -79,11 +80,11 @@ def train():
     tb_writer.add_text('args', str(args))
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
-        ref_geometry = ReferenceGeometry(curvilinear_coords, args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer, args.debug)
-        deformations = ndf(ref_geometry.curvilinear_coords, temporal_coords)                    
+        reference_geometry(curvilinear_coords)
+        deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)
-        mechanical_energy = compute_energy(deformations, ref_geometry, material, external_load, temporal_coords, tb_writer, i)
+        mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, tb_writer, i)
         physics_loss = mechanical_energy.mean()
 
         loss = physics_loss + collision_loss

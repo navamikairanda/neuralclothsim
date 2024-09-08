@@ -161,15 +161,16 @@ class GridSampler(Sampler):
                 
         self.xi__1_max = xi__1_max
         self.xi__2_max = xi__2_max
+        self.spatial_sidelen = math.isqrt(n_spatial_samples)
         
-        self.cell_curvilinear_coords = get_mgrid((math.isqrt(n_spatial_samples), math.isqrt(n_spatial_samples)), stratified=True, dim=2)            
+        self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)            
 
     def __getitem__(self, idx):    
         if idx > 0: raise IndexError
          
         curvilinear_coords = self.cell_curvilinear_coords.clone()        
         
-        t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / math.isqrt(self.n_spatial_samples)        
+        t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / self.spatial_sidelen        
         curvilinear_coords += t_rand_spatial
         
         curvilinear_coords[...,0] *= self.xi__1_max
