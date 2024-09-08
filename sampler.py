@@ -9,6 +9,7 @@ from typing import Tuple, Union
 from pytorch3d.structures import Meshes
 from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals
 from pytorch3d.ops.packed_to_padded import packed_to_padded
+from typing import NamedTuple
 
 def sample_points_from_meshes(
     meshes,
@@ -137,6 +138,10 @@ def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim
     grid_coords = torch.Tensor(grid_coords).to(device).view(-1, dim)
     return grid_coords
 
+class CurvilinearSpace(NamedTuple):
+    xi__1_max: float
+    xi__2_max: float
+    
 class Sampler(Dataset):
     def __init__(self, n_spatial_samples: int, n_temporal_samples: int):
         self.n_spatial_samples = n_spatial_samples
@@ -156,11 +161,10 @@ class Sampler(Dataset):
         return temporal_coords
                            
 class GridSampler(Sampler):
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, xi__1_max: float, xi__2_max: float):
+    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, curvilinear_space: CurvilinearSpace):
         super().__init__(n_spatial_samples, n_temporal_samples)
                 
-        self.xi__1_max = xi__1_max
-        self.xi__2_max = xi__2_max
+        self.curvilinear_space = curvilinear_space
         self.spatial_sidelen = math.isqrt(n_spatial_samples)
         
         self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)            
@@ -173,8 +177,8 @@ class GridSampler(Sampler):
         t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / self.spatial_sidelen        
         curvilinear_coords += t_rand_spatial
         
-        curvilinear_coords[...,0] *= self.xi__1_max
-        curvilinear_coords[...,1] *= self.xi__2_max
+        curvilinear_coords[...,0] *= self.curvilinear_space.xi__1_max
+        curvilinear_coords[...,1] *= self.curvilinear_space.xi__2_max
         curvilinear_coords.requires_grad_(True)
       
         return curvilinear_coords, self.get_temporal_coords()            

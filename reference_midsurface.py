@@ -30,7 +30,7 @@ def generate_mesh_topology(spatial_sidelen):
     return np.concatenate(all_faces, axis=0)
 
 class ReferenceMidSurface():
-    def __init__(self, args, tb_writer):
+    def __init__(self, args, tb_writer, curvilinear_space=None):
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
         self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
@@ -46,12 +46,11 @@ class ReferenceMidSurface():
             #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
             self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
-            args.train_n_spatial_samples, args.test_n_spatial_samples =  math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
             self.temporal_coords = self.temporal_coords.repeat_interleave(args.test_n_spatial_samples, 0)[None]
             test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
             curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
-            curvilinear_coords[...,0] *= args.xi__1_max
-            curvilinear_coords[...,1] *= args.xi__2_max
+            curvilinear_coords[...,0] *= curvilinear_space.xi__1_max
+            curvilinear_coords[...,1] *= curvilinear_space.xi__2_max
             vertices = self(curvilinear_coords)[0]
             faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)

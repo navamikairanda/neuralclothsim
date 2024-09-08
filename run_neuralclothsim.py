@@ -1,18 +1,19 @@
 import torch
 import os
+import math
 from tqdm import trange
 from shutil import copyfile
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from material import LinearMaterial, NonLinearMaterial
-from sampler import GridSampler, MeshSampler
+from sampler import GridSampler, MeshSampler, CurvilinearSpace
 from reference_geometry import ReferenceGeometry
 from modules import Siren, compute_sdf
 from energy import compute_energy
 from logger import get_logger
 from config_parser import get_config_parser, device
-from reference_midsurface import ReferenceMidSurface 
+from reference_midsurface import ReferenceMidSurface
 from file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
@@ -36,11 +37,15 @@ def train():
     logger = get_logger(log_dir, args.expt_name)
     logger.info(args)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
-     
-    reference_midsurface = ReferenceMidSurface(args, tb_writer)
+
+    if args.reference_geometry_name != 'mesh': # analytical surface
+        args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
+        curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
+             
+    reference_midsurface = ReferenceMidSurface(args, tb_writer, curvilinear_space)
     reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer)
     
-    ndf = Siren(args.xi__1_max, args.xi__2_max, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
+    ndf = Siren(curvilinear_space, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
     if args.i_ckpt is not None:
@@ -72,7 +77,7 @@ def train():
     if args.reference_geometry_name == 'mesh':
         sampler = MeshSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface.template_mesh)
     else:
-        sampler = GridSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, args.xi__1_max, args.xi__2_max)
+        sampler = GridSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, curvilinear_space)
 
     external_load = external_load.expand(1, args.train_n_temporal_samples * args.train_n_spatial_samples, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)

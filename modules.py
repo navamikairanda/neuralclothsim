@@ -26,11 +26,10 @@ class SineLayer(nn.Module):
         return torch.sin(self.omega_0 * self.linear(input))
    
 class Siren(nn.Module):
-    def __init__(self, xi__1_max: float, xi__2_max: float, boundary_condition_name: str, reference_geometry_name: str, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
+    def __init__(self, curvilinear_space, boundary_condition_name: str, reference_geometry_name: str, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
         super().__init__()
         self.k = k
-        self.xi__1_max = xi__1_max
-        self.xi__2_max = xi__2_max
+        self.curvilinear_space = curvilinear_space
         self.boundary_condition_name = boundary_condition_name
         self.boundary_curvilinear_coords = boundary_curvilinear_coords
         self.reference_geometry_name = reference_geometry_name
@@ -86,10 +85,10 @@ class Siren(nn.Module):
         if self.reference_geometry_name in ['cylinder', 'cone']: #periodic boundary condition
             normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.xi__2_max], dim=2)
         else:
-            normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.xi__1_max, curvilinear_coords[...,1:2]/self.xi__2_max], dim=2)
+            normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
         deformations = self.net(normalized_coords)
         
-        deformations = apply_boundary(deformations, curvilinear_coords, self.boundary_condition_name, self.xi__1_max, self.xi__2_max)
+        deformations = apply_boundary(deformations, curvilinear_coords, self.boundary_condition_name, self.curvilinear_space)
         ### Apply boundary condition ###
         #if self.boundary_condition_name == 'top_left_fixed':
         #    output = output * (1 - top_left_corner) #* initial_condition
