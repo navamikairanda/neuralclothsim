@@ -47,7 +47,7 @@ def train():
     reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer)
     boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, reference_midsurface.boundary_curvilinear_coords)
     
-    ndf = Siren(curvilinear_space, boundary, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
+    ndf = Siren(boundary, in_features=4 if args.reference_geometry_name in ['cylinder', 'cone'] else 3).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
     if args.i_ckpt is not None:

@@ -54,7 +54,8 @@ class Boundary:
                 deformations = deformations * (1 - top_left_corner) * (1 - top_right_corner) + corner_displacement * top_left_corner - corner_displacement * top_right_corner
             case 'mesh_vertices':
                 for i in range(self.boundary_curvilinear_coords.shape[0]):
-                    deformations = deformations * (1 - torch.exp(-((curvilinear_coords[...,0:1] - self.boundary_curvilinear_coords[i][0]) ** 2 + (curvilinear_coords[...,1:2] - self.boundary_curvilinear_coords[i][1]) ** 2)/self.boundary_support))
+                    boundary_point = torch.exp(-((curvilinear_coords[...,0:1] - self.boundary_curvilinear_coords[i][0]) ** 2 + (curvilinear_coords[...,1:2] - self.boundary_curvilinear_coords[i][1]) ** 2)/self.boundary_support)
+                    deformations = deformations * (1 - boundary_point)
             case _:
                 raise ValueError(f'Unknown boundary condition: {self.boundary_condition_name}')
         return deformations
