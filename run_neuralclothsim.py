@@ -96,12 +96,11 @@ def train():
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
-        
-        with torch.no_grad():
-            tb_writer.add_scalar('loss/total_loss', loss, i)
-            tb_writer.add_scalar('loss/physics_loss', physics_loss, i)
-            tb_writer.add_scalar('loss/collision_loss', collision_loss, i)
-            tb_writer.add_scalar('param/mean_deformation', deformations.mean(), i)  
+               
+        tb_writer.add_scalar('loss/total_loss', loss, i)
+        tb_writer.add_scalar('loss/physics_loss', physics_loss, i)
+        tb_writer.add_scalar('loss/collision_loss', collision_loss, i)
+        tb_writer.add_scalar('param/mean_deformation', deformations.mean(), i)  
         if args.decay_lrate:
             new_lrate = args.lrate * args.lrate_decay_rate ** (i / args.lrate_decay_steps)
             for param_group in optimizer.param_groups:

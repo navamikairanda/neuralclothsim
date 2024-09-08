@@ -94,7 +94,7 @@
             ]
         },
         {
-            "name": "napkin_mesh",
+            "name": "non_flat_non_rectangular_surface",
             "type": "debugpy",
             "request": "launch",
             "program": "run_neuralclothsim.py",

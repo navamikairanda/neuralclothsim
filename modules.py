@@ -49,30 +49,7 @@ class Siren(nn.Module):
         deformations = self.net(normalized_coords)
         deformations = self.boundary.dirichlet_condition(deformations, curvilinear_coords, temporal_coords)
 
-        return deformations
-    
-class SirenReference(nn.Module):
-    def __init__(self, in_features=2, hidden_features=256, hidden_layers=3, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30.):
-        super().__init__()
-
-        self.net = []
-        self.net.append(SineLayer(in_features, hidden_features, is_first=True, omega_0=first_omega_0))
-
-        for i in range(hidden_layers):
-            self.net.append(SineLayer(hidden_features, hidden_features, is_first=False, omega_0=hidden_omega_0))
-
-        if outermost_linear:
-            final_linear = nn.Linear(hidden_features, out_features)            
-            with torch.no_grad():
-                final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0, np.sqrt(6 / hidden_features) / hidden_omega_0)
-            self.net.append(final_linear)
-        else:
-            self.net.append(SineLayer(hidden_features, out_features, is_first=False, omega_0=hidden_omega_0))    
-        self.net = nn.Sequential(*self.net)
-    
-    def forward(self, curvilinear_coords):
-        output = self.net(curvilinear_coords)
-        return output
+        return deformations    
 
 class GELUReference(nn.Module):
     def __init__(self, in_features, hidden_features, hidden_layers, out_features):
@@ -83,14 +60,10 @@ class GELUReference(nn.Module):
 
         for i in range(hidden_layers-1):
             self.net.append(nn.Linear(hidden_features, hidden_features))
-            self.net.append(nn.GELU())
-            #self.net.append(nn.SiLU())
-            #self.net.append(nn.ReLU())
-            #self.net.append(nn.Tanh())
+            self.net.append(nn.GELU()) #nn.ReLU() #nn.SiLU() #nn.Tanh()
         
         self.net.append(nn.Linear(hidden_features, hidden_features))
-        self.net.append(nn.GELU())
-        #self.net.append(nn.SiLU())
+        self.net.append(nn.GELU()) #nn.SiLU()
 
         final_linear = nn.Linear(hidden_features, out_features)
             

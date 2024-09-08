@@ -7,7 +7,7 @@ from tqdm import trange
 from pytorch3d.io import save_obj, load_obj
 
 from config_parser import device
-from modules import SirenReference, GELUReference
+from modules import GELUReference
 from sampler import get_mgrid, sample_points_from_meshes
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
@@ -58,7 +58,6 @@ class ReferenceMidSurface():
         save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state_fitted.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])
         
     def fit_reference_mlp(self, reference_mlp_lrate, reference_mlp_n_iterations, tb_writer):
-        #self.reference_mlp = SirenReference(first_omega_0=5., hidden_omega_0=5.).to(device)
         self.reference_mlp = GELUReference(in_features=2, hidden_features=512, out_features=3, hidden_layers=5).to(device)
         reference_optimizer = torch.optim.Adam(lr=reference_mlp_lrate, params=self.reference_mlp.parameters())
         loss_fn = nn.L1Loss()        
@@ -93,5 +92,5 @@ class ReferenceMidSurface():
             case 'mesh':  
                 midsurface_positions = self.reference_mlp(curvilinear_coords)
             case _: 
-                raise NotImplementedError(f'Unknown reference_geometry_name {self.reference_geometry_name}')
+                raise ValueError(f'Unknown reference_geometry_name {self.reference_geometry_name}')
         return midsurface_positions
