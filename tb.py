@@ -1,5 +1,8 @@
-from torch.utils.tensorboard import SummaryWriter
 
 def set_tensorboard_writer(log_dir):
     global writer
-    writer = SummaryWriter(log_dir)
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+        writer = SummaryWriter(log_dir)
+    except ImportError:
+        writer = None

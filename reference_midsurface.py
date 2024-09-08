@@ -55,7 +55,8 @@ class ReferenceMidSurface():
             faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
             self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
-        tb.writer.add_mesh('reference_state_fitted', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
+        if tb.writer:
+            tb.writer.add_mesh('reference_state_fitted', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
         save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state_fitted.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])
         
     def fit_reference_mlp(self, reference_mlp_lrate, reference_mlp_n_iterations):
@@ -69,7 +70,8 @@ class ReferenceMidSurface():
             loss = loss_fn(self.reference_mlp(uvs), verts)
             loss.backward()
             reference_optimizer.step()
-            tb.writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
+            if tb.writer:
+                tb.writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)           
         
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 

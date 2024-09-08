@@ -22,7 +22,8 @@ def test(ndf: Siren, test_n_temporal_samples: int, meshes_dir: str, i: int, refe
     
     test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_n_temporal_samples, 1), reference_midsurface.temporal_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_n_temporal_samples, 1) + test_deformations
-    tb.writer.add_mesh('simulated_states', test_deformed_positions.view(test_n_temporal_samples, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_n_temporal_samples, 1, 1), global_step=i)
+    if tb.writer:
+        tb.writer.add_mesh('simulated_states', test_deformed_positions.view(test_n_temporal_samples, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_n_temporal_samples, 1, 1), global_step=i)
     save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_n_temporal_samples, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
         
 def train():  
@@ -81,7 +82,9 @@ def train():
     external_load = external_load.expand(1, args.train_n_temporal_samples * args.train_n_spatial_samples, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
-    tb.writer.add_text('args', str(args))
+    if tb.writer:
+        tb.writer.add_text('args', str(args))
+        
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords, temporal_coords = next(iter(dataloader))
         reference_geometry(curvilinear_coords)
@@ -96,11 +99,13 @@ def train():
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
-               
-        tb.writer.add_scalar('loss/total_loss', loss, i)
-        tb.writer.add_scalar('loss/physics_loss', physics_loss, i)
-        tb.writer.add_scalar('loss/collision_loss', collision_loss, i)
-        tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)  
+        
+        if tb.writer:               
+            tb.writer.add_scalar('loss/total_loss', loss, i)
+            tb.writer.add_scalar('loss/physics_loss', physics_loss, i)
+            tb.writer.add_scalar('loss/collision_loss', collision_loss, i)
+            tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)
+            
         if args.decay_lrate:
             new_lrate = args.lrate * args.lrate_decay_rate ** (i / args.lrate_decay_steps)
             for param_group in optimizer.param_groups:
