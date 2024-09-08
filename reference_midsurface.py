@@ -34,7 +34,7 @@ class ReferenceMidSurface():
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
         self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
-        if args.reference_geometry_name in ['mesh']:
+        if args.reference_geometry_name == 'mesh':
             vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
             self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)
@@ -46,6 +46,7 @@ class ReferenceMidSurface():
             #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
             self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
+            args.train_n_spatial_samples, args.test_n_spatial_samples =  math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
             self.temporal_coords = self.temporal_coords.repeat_interleave(args.test_n_spatial_samples, 0)[None]
             test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
             curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
@@ -75,21 +76,24 @@ class ReferenceMidSurface():
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 
         xi__2 = curvilinear_coords[...,1]
-        if self.reference_geometry_name == 'rectangle_xy': #vertical
-            midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
-            #midsurface_positions = torch.stack([xi__1 - 0.5, xi__2 - 0.5, 1.6 + 0.* (xi__1**2 - xi__2**2)], dim=2)            
-        elif self.reference_geometry_name == 'rectangle_xz': #horizontal
-            midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #non-boundary constraint
-            #midsurface_positions = torch.stack([xi__1 - 0.5, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2 - 0.5], dim=2)            
-            #midsurface_positions = torch.stack([xi__1, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision sphere example
-            #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example  
-        elif self.reference_geometry_name == 'cylinder':
-            R = 0.25
-            midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
-        elif self.reference_geometry_name == 'cone':
-            R_top, R_bottom, L = 0.2, 1.5, 1
-            R = xi__2 * (R_top - R_bottom) / L + R_bottom
-            midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
-        elif self.reference_geometry_name == 'mesh':  
-            midsurface_positions = self.reference_mlp(curvilinear_coords)
+        match self.reference_geometry_name:
+            case 'rectangle_xy': #vertical
+                midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
+                #midsurface_positions = torch.stack([xi__1 - 0.5, xi__2 - 0.5, 1.6 + 0.* (xi__1**2 - xi__2**2)], dim=2)            
+            case 'rectangle_xz': #horizontal
+                midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #non-boundary constraint
+                #midsurface_positions = torch.stack([xi__1 - 0.5, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2 - 0.5], dim=2)            
+                #midsurface_positions = torch.stack([xi__1, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision sphere example
+                #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example  
+            case 'cylinder':
+                R = 0.25
+                midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
+            case 'cone':
+                R_top, R_bottom, L = 0.2, 1.5, 1
+                R = xi__2 * (R_top - R_bottom) / L + R_bottom
+                midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
+            case 'mesh':  
+                midsurface_positions = self.reference_mlp(curvilinear_coords)
+            case _: 
+                raise NotImplementedError(f'Unknown reference_geometry_name {self.reference_geometry_name}')
         return midsurface_positions
