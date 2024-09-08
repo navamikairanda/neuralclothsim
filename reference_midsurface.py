@@ -8,8 +8,7 @@ from pytorch3d.io import save_obj, load_obj
 
 from config_parser import device
 from modules import SirenReference, GELUReference
-from sampler import get_mgrid
-from sampler import sample_points_from_meshes
+from sampler import get_mgrid, sample_points_from_meshes
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
 
@@ -30,7 +29,7 @@ def generate_mesh_topology(spatial_sidelen):
     return np.concatenate(all_faces, axis=0)
 
 class ReferenceMidSurface():
-    def __init__(self, args, tb_writer, curvilinear_space=None):
+    def __init__(self, args, tb_writer, curvilinear_space):
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
         self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
@@ -41,7 +40,7 @@ class ReferenceMidSurface():
             if args.boundary_condition_name == 'mesh_vertices':
                 self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.reference_boundary_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations, tb_writer)
-            reference_mlp_verts_pred = self.midsurface(self.template_mesh.textures.verts_uvs_padded())
+            reference_mlp_verts_pred = self(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
             #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
             self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]

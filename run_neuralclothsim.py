@@ -14,6 +14,7 @@ from energy import compute_energy
 from logger import get_logger
 from config_parser import get_config_parser, device
 from reference_midsurface import ReferenceMidSurface
+from boundary import Boundary
 from file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
@@ -40,12 +41,13 @@ def train():
 
     if args.reference_geometry_name != 'mesh': # analytical surface
         args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
-        curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
-             
+    
+    curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, tb_writer, curvilinear_space)
     reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, tb_writer)
+    boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, reference_midsurface.boundary_curvilinear_coords)
     
-    ndf = Siren(curvilinear_space, args.boundary_condition_name, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
+    ndf = Siren(curvilinear_space, boundary, args.reference_geometry_name, boundary_curvilinear_coords=reference_midsurface.boundary_curvilinear_coords).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
     if args.i_ckpt is not None:
@@ -68,10 +70,7 @@ def train():
         test(ndf, args.test_n_temporal_samples, meshes_dir, f'{global_step}', reference_midsurface, tb_writer)
         return
     
-    if args.material_type == 'linear':            
-        material = LinearMaterial(args)
-    elif args.material_type == 'nonlinear':
-        material = NonLinearMaterial(args)
+    material = LinearMaterial(args) if args.material_type == 'linear' else NonLinearMaterial(args)
     external_load = torch.tensor(args.gravity_acceleration, device=device) * material.mass_area_density
 
     if args.reference_geometry_name == 'mesh':

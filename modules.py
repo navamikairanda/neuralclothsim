@@ -4,7 +4,7 @@ import numpy as np
 import math
 from torch.nn.functional import normalize
 from config_parser import device
-from boundary import apply_boundary
+from boundary import Boundary
 
 class SineLayer(nn.Module):      
     def __init__(self, in_features: int, out_features: int, bias=True, is_first=False, omega_0=30.):
@@ -26,11 +26,11 @@ class SineLayer(nn.Module):
         return torch.sin(self.omega_0 * self.linear(input))
    
 class Siren(nn.Module):
-    def __init__(self, curvilinear_space, boundary_condition_name: str, reference_geometry_name: str, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., k=10., boundary_curvilinear_coords=None):
+    def __init__(self, curvilinear_space, boundary: Boundary, reference_geometry_name: str, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30., boundary_curvilinear_coords=None):
         super().__init__()
-        self.k = k
         self.curvilinear_space = curvilinear_space
-        self.boundary_condition_name = boundary_condition_name
+        #self.boundary_condition_name = boundary_condition_name
+        self.boundary = boundary
         self.boundary_curvilinear_coords = boundary_curvilinear_coords
         self.reference_geometry_name = reference_geometry_name
         if self.reference_geometry_name in ['cylinder', 'cone']:
@@ -53,11 +53,12 @@ class Siren(nn.Module):
     def forward(self, curvilinear_coords: torch.Tensor, temporal_coords: torch.Tensor):
         
         ### Define initial and boundary condition ###
-        initial_condition = temporal_coords ** 2
+        #initial_condition = temporal_coords ** 2
         #initial_condition = torch.tanh(self.k * (temporal_coords ** 2))
-        boundary_support = 0.01
+        #boundary_support = 0.01
         #if self.boundary_condition_name == 'top_left_fixed':
         #    top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.xi__2_max) ** 2)/boundary_support)
+        '''
         if self.boundary_condition_name == 'two_rims_compression':
             bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/boundary_support)
             top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.xi__2_max) ** 2)/boundary_support)
@@ -80,16 +81,21 @@ class Siren(nn.Module):
             #top_right_corner = torch.exp(-((curvilinear_coords[...,0:1] - self.xi__1_max) ** 2 + curvilinear_coords[...,1:2] ** 2)/0.01)
             #corner_displacement = torch.cat([0.2 * temporal_coords, torch.zeros_like(temporal_coords), torch.zeros_like(temporal_coords)], dim=2)
             corner_displacement = torch.cat([0.2 * torch.ones_like(temporal_coords), torch.zeros_like(temporal_coords), torch.zeros_like(temporal_coords)], dim=2)
-
+        '''
         ### Normalize coordinates ###
+        '''
         if self.reference_geometry_name in ['cylinder', 'cone']: #periodic boundary condition
             normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.xi__2_max], dim=2)
         else:
             normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
+        '''
+        normalized_coords = self.boundary.periodic_condition_and_normalization(curvilinear_coords, temporal_coords)
+        
         deformations = self.net(normalized_coords)
         
-        deformations = apply_boundary(deformations, curvilinear_coords, self.boundary_condition_name, self.curvilinear_space)
+        deformations = self.boundary.dirichlet_condition(deformations, curvilinear_coords, temporal_coords)
         ### Apply boundary condition ###
+        '''
         #if self.boundary_condition_name == 'top_left_fixed':
         #    output = output * (1 - top_left_corner) #* initial_condition
         if self.boundary_condition_name == 'two_rims_compression':
@@ -111,6 +117,7 @@ class Siren(nn.Module):
                 output = output * (1 - torch.exp(-((curvilinear_coords[...,0:1] - self.boundary_curvilinear_coords[i][0]) ** 2 + (curvilinear_coords[...,1:2] - self.boundary_curvilinear_coords[i][1]) ** 2)/boundary_support))
         else: 
             pass #* initial_condition
+        '''
         return deformations
     
 class SirenReference(nn.Module):
