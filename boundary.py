@@ -11,7 +11,7 @@ class Boundary:
 
     def periodic_condition_and_normalization(self, curvilinear_coords, temporal_coords):
         if self.reference_geometry_name in ['cylinder', 'cone']:
-            normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.xi__2_max], dim=2)
+            normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
         else:
             normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
         return normalized_coords
@@ -22,7 +22,7 @@ class Boundary:
             case 'top_left_fixed':
                 top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 deformations = deformations * (1 - top_left_corner)
-            case 'two_rim_compression':                
+            case 'two_rims_compression':                
                 bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 #rim_displacement = torch.cat([torch.zeros_like(temporal_coords), 0.075 * temporal_coords, torch.zeros_like(temporal_coords)], dim=2)

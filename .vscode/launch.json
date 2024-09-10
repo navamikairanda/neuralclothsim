@@ -122,8 +122,8 @@
                 "-n", 
                 "sleeve_buckle_debug", 
                 "-m",
-                //"material/linear_1.ini", 
-                "material/canvas.ini"
+                "material/linear_1.ini", 
+                //"material/canvas.ini"
             ]
         },
         {
