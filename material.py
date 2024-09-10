@@ -52,7 +52,8 @@ class NonLinearMaterial(Material):
             self.alpha = [args.alpha1, args.alpha2, args.alpha3, args.alpha4]
             
             self.E_11_min, self.E_11_max, self.E_22_min, self.E_22_max, self.E_12_max = args.E_11_min, args.E_11_max, args.E_22_min, args.E_22_max, args.E_12_max
-            self.E_12_min = -self.E_12_max        
+            self.E_12_min = -self.E_12_max
+        self.i_debug = args.i_debug        
     
     def compute_eta(self, j: int, x: torch.Tensor) -> torch.Tensor:
         eta = torch.zeros_like(x)
@@ -77,7 +78,7 @@ class NonLinearMaterial(Material):
         E12_valid = torch.logical_and(E12 > self.E_12_min, E12 < self.E_12_max)
         E22_valid = torch.logical_and(E22 > self.E_22_min, E22 < self.E_22_max)
         
-        if not i % 200 and tb.writer:
+        if not i % self.i_debug and tb.writer:
             tb.writer.add_histogram('param/E11_valid', E11_valid, i)
             tb.writer.add_histogram('param/E12_valid', E12_valid, i)
             tb.writer.add_histogram('param/E22_valid', E22_valid, i)
@@ -120,7 +121,7 @@ class NonLinearMaterial(Material):
             hyperelastic_strain_energy = self.a11 * 0.5 * self.compute_eta(0, E11_clamped ** 2) + self.a12 * self.compute_eta(1, E11_clamped * E22_clamped) + self.a22 * 0.5 * self.compute_eta(2, E22_clamped ** 2) + self.G12 * self.compute_eta(3, E12_clamped ** 2)            
             hyperelastic_strain_energy += self.strain_cutoff_extrapolation(E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i)          
             
-        if not i % 200 and tb.writer:
+        if not i % self.i_debug and tb.writer:
             tb.writer.add_histogram('param/E11', E11, i)
             tb.writer.add_histogram('param/E12', E12, i)
             tb.writer.add_histogram('param/E22', E22, i)

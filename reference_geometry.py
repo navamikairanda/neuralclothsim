@@ -7,10 +7,11 @@ from plot_helper import get_plot_grid_tensor
 from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, reference_midsurface: ReferenceMidSurface):
+    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, reference_midsurface: ReferenceMidSurface, i_debug: int):
         self.n_spatial_samples = n_spatial_samples 
         self.n_temporal_samples = n_temporal_samples
         self.reference_midsurface = reference_midsurface
+        self.i_debug = i_debug
 
     def __call__(self, curvilinear_coords: torch.Tensor, i:int):
         self.curvilinear_coords = curvilinear_coords
@@ -27,7 +28,7 @@ class ReferenceGeometry():
         self.a_3 = self.a_3.repeat(1, self.n_temporal_samples, 1)
         self.a__1 = self.a__1.repeat(1, self.n_temporal_samples, 1)
         self.a__2 = self.a__2.repeat(1, self.n_temporal_samples, 1)
-        if not i % 200 and tb.writer:     
+        if not i % self.i_debug and tb.writer:     
             tb.writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]), i)
             tb.writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:self.n_spatial_samples], self.b_1_2[0,:self.n_spatial_samples],self.b_2_1[0,:self.n_spatial_samples], self.b_2_2[0,:self.n_spatial_samples]), i)
             

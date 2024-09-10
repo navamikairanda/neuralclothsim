@@ -7,8 +7,8 @@ from plot_helper import get_plot_single_tensor
 from reference_geometry import ReferenceGeometry
 from strain import compute_strain                
 
-def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, material: Material, external_load: torch.Tensor, temporal_coords: torch.Tensor, i: int) -> torch.Tensor:   
-    strain, normal_difference = compute_strain(deformations, ref_geometry, i)
+def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, material: Material, external_load: torch.Tensor, temporal_coords: torch.Tensor, i: int, i_debug: int) -> torch.Tensor:   
+    strain, normal_difference = compute_strain(deformations, ref_geometry, i, i_debug)
     
     if isinstance(material, LinearMaterial):        
         hyperelastic_strain_energy_mid = material.compute_internal_energy(strain, ref_geometry)
@@ -34,7 +34,7 @@ def compute_energy(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         external_energy_mid = torch.einsum('ijk,ijk->ij', external_load, deformations)
         external_energy_bottom = torch.einsum('ijk,ijk->ij', external_load, deformations_bottom)
         mechanical_energy = ((hyperelastic_strain_energy_top - external_energy_top) + 4 * (hyperelastic_strain_energy_mid - external_energy_mid) + (external_energy_bottom - hyperelastic_strain_energy_bottom)) * torch.sqrt(ref_geometry.a) / 6.        
-    if not i % 200 and tb.writer:
+    if not i % i_debug and tb.writer:
         # Visualize the strain energy for the deformed surface at t=0
         tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,:ref_geometry.n_spatial_samples]), i)
         tb.writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i)          

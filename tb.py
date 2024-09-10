@@ -1,8 +1,10 @@
 
-def set_tensorboard_writer(log_dir):
+def set_tensorboard_writer(log_dir, debug):
     global writer
-    try:
-        from torch.utils.tensorboard import SummaryWriter
-        writer = SummaryWriter(log_dir)
-    except ImportError:
-        writer = None
+    writer = None
+    if debug:          
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+            writer = SummaryWriter(log_dir)
+        except ImportError:
+            pass

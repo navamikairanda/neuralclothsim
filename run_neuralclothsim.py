@@ -34,10 +34,10 @@ def train():
         
     for dir in [log_dir, weights_dir]:
         os.makedirs(dir, exist_ok=True)
-
-    tb.set_tensorboard_writer(log_dir)        
+            
     logger = get_logger(log_dir, args.expt_name)
     logger.info(args)
+    tb.set_tensorboard_writer(log_dir, args.debug)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
 
     if args.reference_geometry_name != 'mesh': # analytical surface
@@ -45,7 +45,7 @@ def train():
     
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
-    reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface)
+    reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface, args.i_debug)
     boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, reference_midsurface.boundary_curvilinear_coords)
     
     ndf = Siren(boundary, in_features=4 if args.reference_geometry_name in ['cylinder', 'cone'] else 3).to(device)
@@ -91,7 +91,7 @@ def train():
         deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
 
         collision_loss = torch.tensor(0., device=device)
-        mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, i)
+        mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, i, args.i_debug)
         physics_loss = mechanical_energy.mean()
 
         loss = physics_loss + collision_loss
