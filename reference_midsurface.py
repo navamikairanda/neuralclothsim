@@ -34,7 +34,7 @@ class ReferenceMidSurface():
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
         self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
-        if args.reference_geometry_name == 'mesh':
+        if self.reference_geometry_name == 'mesh':
             vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
             self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)

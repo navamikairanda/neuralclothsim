@@ -27,7 +27,7 @@ class ReferenceGeometry():
         self.a_3 = self.a_3.repeat(1, self.n_temporal_samples, 1)
         self.a__1 = self.a__1.repeat(1, self.n_temporal_samples, 1)
         self.a__2 = self.a__2.repeat(1, self.n_temporal_samples, 1)
-        if debug and tb.writer:     
+        if debug and tb.writer and self.reference_midsurface.reference_geometry_name != 'mesh':
             tb.writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]))
             tb.writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:self.n_spatial_samples], self.b_1_2[0,:self.n_spatial_samples],self.b_2_1[0,:self.n_spatial_samples], self.b_2_2[0,:self.n_spatial_samples]))
             
