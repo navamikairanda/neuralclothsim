@@ -161,22 +161,6 @@
                 //"material/linear_1.ini"
                 "material/canvas.ini"
             ]
-        },  
-        {
-            "name": "collision",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "run_neuralclothsim.py",
-            "console": "integratedTerminal",
-            "justMyCode": true, 
-            "args": [
-                "-c",
-                "config/collision.ini", 
-                "-n", 
-                "collision_debug",
-                "-m",
-                "material/linear_1.ini"
-            ]
-        },
+        }
     ]
 }

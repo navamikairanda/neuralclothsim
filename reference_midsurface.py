@@ -42,8 +42,7 @@ class ReferenceMidSurface():
                 self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.reference_boundary_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations)
             reference_mlp_verts_pred = self(self.template_mesh.textures.verts_uvs_padded())
-            self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
-            #self.temporal_coords = torch.linspace(0, 1, args.test_n_temporal_samples, device=device)[:,None].repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
+            self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)            
             self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
             self.temporal_coords = self.temporal_coords.repeat_interleave(args.test_n_spatial_samples, 0)[None]
@@ -79,12 +78,8 @@ class ReferenceMidSurface():
         match self.reference_geometry_name:
             case 'rectangle_xy': #vertical
                 midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
-                #midsurface_positions = torch.stack([xi__1 - 0.5, xi__2 - 0.5, 1.6 + 0.* (xi__1**2 - xi__2**2)], dim=2)            
             case 'rectangle_xz': #horizontal
                 midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #non-boundary constraint
-                #midsurface_positions = torch.stack([xi__1 - 0.5, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2 - 0.5], dim=2)            
-                #midsurface_positions = torch.stack([xi__1, 1.0 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision sphere example
-                #midsurface_positions = torch.stack([xi__1, 0.6001 + 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #collision bunny example  
             case 'cylinder':
                 R = 0.25
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)

@@ -9,7 +9,7 @@ import tb
 from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler, CurvilinearSpace
 from reference_geometry import ReferenceGeometry
-from modules import Siren, compute_sdf
+from modules import Siren
 from energy import compute_energy
 from logger import get_logger
 from config_parser import get_config_parser, device
@@ -40,7 +40,7 @@ def train():
     tb.set_tensorboard_writer(log_dir, args.debug)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
 
-    if args.reference_geometry_name != 'mesh': # analytical surface
+    if args.reference_geometry_name != 'mesh': # for analytical surface, use equal number of spatial samples along each curvilinear coordinate
         args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
     
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
@@ -90,20 +90,15 @@ def train():
         reference_geometry(curvilinear_coords, i==0)
         deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
 
-        collision_loss = torch.tensor(0., device=device)
         mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, i, args.i_debug)
-        physics_loss = mechanical_energy.mean()
-
-        loss = physics_loss + collision_loss
-        #loss = physics_loss
+        loss = mechanical_energy.mean()
+        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
         
         if tb.writer:               
-            tb.writer.add_scalar('loss/total_loss', loss, i)
-            tb.writer.add_scalar('loss/physics_loss', physics_loss, i)
-            tb.writer.add_scalar('loss/collision_loss', collision_loss, i)
+            tb.writer.add_scalar('loss/loss', loss, i)
             tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)
             
         if args.decay_lrate:
@@ -112,8 +107,7 @@ def train():
                 param_group['lr'] = new_lrate         
         
         if not i % args.i_summary:
-            logger.info(f'Iteration: {i}, physics_loss: {physics_loss}, mean_deformation: {deformations.mean()}')
-            logger.info(f'Iteration: {i}, collision_loss: {collision_loss}')      
+            logger.info(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')      
             
         if not i % args.i_weights and i > 0:
             torch.save({

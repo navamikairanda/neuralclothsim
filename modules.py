@@ -60,10 +60,10 @@ class GELUReference(nn.Module):
 
         for i in range(hidden_layers-1):
             self.net.append(nn.Linear(hidden_features, hidden_features))
-            self.net.append(nn.GELU()) #nn.ReLU() #nn.SiLU() #nn.Tanh()
+            self.net.append(nn.GELU())
         
         self.net.append(nn.Linear(hidden_features, hidden_features))
-        self.net.append(nn.GELU()) #nn.SiLU()
+        self.net.append(nn.GELU())
 
         final_linear = nn.Linear(hidden_features, out_features)
             
@@ -73,12 +73,3 @@ class GELUReference(nn.Module):
     def forward(self, curvilinear_coords):
         output = self.net(curvilinear_coords)
         return output
-
-def compute_sdf(positions):
-    center = torch.tensor([0.5, 0.5, 0.5], device=device)
-    radius = 0.3 #0.4, 0.1
-    #sdf = ((positions - center) ** 2).sum(2) - radius ** 2
-    sdf = torch.sqrt(((positions - center) ** 2).sum(2)) - radius
-    normal = normalize(positions - center, dim=2) #jacobian(sdf, positions)[0][...,0,:]
-    #torch.einsum('ij,ijk->ijk', relu(eps - sdf), normal)
-    return sdf, normal 
