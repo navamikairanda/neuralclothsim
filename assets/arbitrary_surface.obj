@@ -1,6 +1,5 @@
 # Blender 3.6.14
 # www.blender.org
-mtllib non_flat_non_rectangular_surface.mtl
 o Grid
 v -0.844169 0.138962 0.683289
 v 0.039925 0.115488 0.767258
