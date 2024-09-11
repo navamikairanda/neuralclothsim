@@ -17,7 +17,11 @@ This repository contains the official implementation of the paper "NeuralClothSi
 *Despite existing 3D cloth simulators producing realistic results, they predominantly operate on discrete surface representations (e.g. points and meshes) with a fixed spatial resolution, which often leads to large memory consumption and resolution-dependent simulations. Moreover, back-propagating gradients through the existing solvers is difficult, and they hence cannot be easily integrated into modern neural architectures. In response, this paper re-thinks physically plausible cloth simulation: We propose NeuralClothSim, i.e., a new quasistatic cloth simulator using thin shells, in which surface deformation is encoded in neural network weights in the form of a neural field. Our memory-efficient solver operates on a new continuous coordinate-based surface representation called neural deformation fields (NDFs); it supervises NDF equilibria with the laws of the non-linear Kirchhoff-Love shell theory with a non-linear anisotropic material model. NDFs are adaptive: They 1) allocate their capacity to the deformation details and 2) allow surface state queries at arbitrary spatial resolutions without re-training. We show how to train NeuralClothSim while imposing hard boundary conditions and demonstrate multiple applications, such as material interpolation and simulation editing. The experimental results highlight the effectiveness of our continuous neural formulation.*
 
 ## News
-* [2024-TODO] We have released the codebase for NeuralClothSim. 
+* [2024-TODO] We have released the source code for NeuralClothSim. 
+
+## Google Colab
+If you want to experiment with Siren, we have written a Colab. It's quite comprehensive and comes with a no-frills, drop-in implementation of SIREN. It doesn't require installing anything, and goes through the following experiments / SIREN properties:
+TODO: add link
 
 ## Installation
 Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies
@@ -45,57 +49,53 @@ conda activate neuralclothsim
 
 The codebase has the following structure:
 
-* Simulation configurations are defined in the `config/` directory. They include the scene description such as reference geometry, boundary condition, and external forces, as well as optimization configuration (e.g. learnign rate) and testing configurations such as sampling rate. 
-* Material configutations are defined in the `material/` directory. Material models (linear, nonlinear, StVK, Clyde model etc..) are defined in `material/material.py`.
-* Starting point for the running is `run_neuralclothsim.py` and includes both training and testing scripts.
-* `modules.py` contains the implementation of the neural deformation field and the boundary conditions.
-* `internal_energy.py` contains the implementation of the internal energy of the cloth.
-* `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the cloth and the derived differential quantities.
-* `sampler.py` contains the implementation of the sampler (uniform and mesh-based) for the cloth.
+* Simulation configurations are defined in the `config/` directory. They include the scene description such as reference geometry, boundary condition, and external forces, as well as optimization configuration (e.g. learning rate) and testing configurations such as sampling rate. 
+* Material configurations are defined in the `material/` directory. Material models (linear, nonlinear, StVK, Clyde model etc..) and their corresponding strain energy computations are defined in `material.py`.
+* Entry point for the running the method is `run_neuralclothsim.py` and includes both training and testing scripts.
+* `modules.py` contains the implementation of the neural deformation field and `boundary.py` contains the Dirichlet and periodic boundary constaints.
+* `energy.py` contains the implementation of the loss (i.e. potential energies) of the simulation setup and `strain.py` contains calculation of stretching and bending strain. 
+* `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the thin shell (cloth) and the derived differential quantities.
+* `sampler.py` contains the implementation of the generating training samples (grid and mesh-based) on the cloth.
 
 ### Running
 #TODO: I am here
-For full version, check out run_neuralclothsim.py, reproduce simulations with
+check out run_neuralclothsim.py, reproduce simulations with
 
-<details>
-<summary><span style="font-weight: bold;">Command line arguments for run_neuralclothsim.py</span></summary>
+Usage details are here: 
+```
+python run_neuralclothsim.py --help 
+``` 
 
-
-  #### --source_path / -s
-  Path to the source directory containing a COLMAP or Synthetic NeRF data set.
-
-</details>
+for full options command line arguments
 
 #### Napkin
 ```
-python run_neuralclothsim.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
-python run_neuralclothsim.py -c config/drape.ini -n drape_linear -m material/linear_1.ini
+python run_neuralclothsim.py -c config/napkin_fixed_handle.ini --expt_name napkin_fixed_handle -m material/canvas.ini
+python run_neuralclothsim.py -c config/drape.ini --expt_name drape_linear -m material/linear_1.ini
 python run_neuralclothsim.py -c config/napkin.ini --expt_name napkin -m material/canvas.ini
 ```
 
 ```
-python run_neuralclothsim.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
-python run_neuralclothsim.py -c config/sleeve_buckle.ini -n sleeve_buckle_canvas -m material/canvas.ini
-python run_neuralclothsim.py -c config/skirt_twist.ini -n skirt_twist -m material/linear_1.ini
-python run_neuralclothsim.py -c config/skirt_static_rim.ini -n skirt_static_rim -m material/canvas.ini
+python run_neuralclothsim.py -c config/sleeve_buckle.ini --expt_name sleeve_buckle_canvas -m material/canvas.ini
+python run_neuralclothsim.py -c config/skirt_twist.ini --expt_name skirt_twist -m material/linear_1.ini
+python run_neuralclothsim.py -c config/skirt_static_rim.ini --expt_name skirt_static_rim -m material/canvas.ini
 ```
 
 #### Reference mesh
 Consistency experiment (Figs.6, XII)
 ```
 python run_neuralclothsim.py -c config/napkin_mesh.ini --expt_name napkin_mesh
+python run_neuralclothsim.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
 ```
 
-#### Collision
-Set physics_loss_weight = 1.0, collision_loss_weight = 1.0
-```
-python run_neuralclothsim.py -c config/collision.ini -n collision_linear -m material/linear_1.ini
-```
+Add nonboundary constraint results
 
+Non-linear varying material
+python run_neuralclothsim.py -c config/drape.ini --expt_name drape_nl_canvas -m material/canvas.ini
+python run_neuralclothsim.py -c config/drape.ini --expt_name drape_linear -m material/linear_1.ini
 ```
 tensorboard --logdir logs
 ```
-
 
 Similarly, replacing `napkin` with `sleeve` or `skirt` will reproduce the corresponding simulations.
 
@@ -103,21 +103,22 @@ Similarly, replacing `napkin` with `sleeve` or `skirt` will reproduce the corres
 
 To visualise the trained models, run the following command:
 ```
-python test.py -c config/drape.ini -n drape_nl_canvas -m material/canvas.ini
+python run_neuralclothsim.py -c config/drape.ini --expt_name drape_nl_canvas -m material/canvas.ini --test_only -i_ckpt
 ```
 
-TODO: Share some trained checkpoints
+We shared some pre-trained checkpoints
 
 TODO: Add visual result similar to PhysGaussian
 
-Add nonboundary constraint results
 
 ## Create Your Own Simulation
 
 Mention the required arguments
 config file
-boundary_condition (not required if collision)
-use exisiting material or create new material
+geometry_name 
+sepcial case for 
+boundary_condition
+use existing material or create new material
 
 
 ## FAQ
@@ -131,6 +132,7 @@ figure: metric tensor/strain, curvature tensor/strain, strain energy density, te
 meshes: reference_state, simulated_state
 text: args
 Reproducible results by setting the random seed Set seed for reproducible results
+- *Garment* No support for seams, future work
 
 ## Acknowledgements
 This repository uses some of the source code from:

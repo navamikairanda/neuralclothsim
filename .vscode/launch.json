@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "napkin",
+            "name": "napkin_fixed_handle",
             "type": "debugpy",
             "request": "launch",
             "program": "run_neuralclothsim.py",
@@ -13,17 +13,15 @@
             "justMyCode": true, 
             "args": [
                 "-c",
-                "config/napkin.ini", 
+                "config/napkin_fixed_handle.ini", 
                 "-n", 
-                "napkin_debug",
+                "napkin_fixed_handle_debug",
                 "-m",
-                "material/canvas.ini",
-                //"--train_temporal_sidelen", 
-                //"2"
+                "material/linear_1.ini"
             ]
         },
         {
-            "name": "drape",
+            "name": "napkin_moving_handles",
             "type": "debugpy",
             "request": "launch",
             "program": "run_neuralclothsim.py",
@@ -31,18 +29,17 @@
             "justMyCode": true, 
             "args": [
                 "-c",
-                "config/drape.ini",
+                "config/napkin_moving_handles.ini",
                 "-n", 
-                //"drape_debug_canvas", 
-                "drape_debug_linear", 
+                "napkin_moving_handles", 
                 "-m",
                 "material/linear_1.ini"
                 //"material/canvas.ini"
                 //"material/denim.ini"
             ]
-        }, 
+        },
         {
-            "name": "napkin_mesh",
+            "name": "napkin_fixed_edges",
             "type": "debugpy",
             "request": "launch",
             "program": "run_neuralclothsim.py",
@@ -50,9 +47,57 @@
             "justMyCode": true, 
             "args": [
                 "-c",
-                "config/napkin_mesh.ini",
+                "config/napkin_fixed_edges.ini", 
                 "-n", 
-                "napkin_mesh_debug",
+                "napkin_fixed_edges_debug",
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "napkin_nonboundary_fixed_handle",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/napkin_nonboundary_fixed_handle.ini", 
+                "-n", 
+                "napkin_nonboundary_fixed_handle_debug",
+                "-m",
+                "material/linear_1.ini"
+            ]
+        },
+        {
+            "name": "napkin_nonboundary_fixed_edge",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/napkin_nonboundary_fixed_edge.ini", 
+                "-n", 
+                "napkin_nonboundary_fixed_edge_debug",
+                "-m",
+                "material/linear_1.ini"
+            ]
+        }, 
+        {
+            "name": "napkin_mesh_fixed_handle",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_neuralclothsim.py",
+            "console": "integratedTerminal",
+            "justMyCode": true, 
+            "args": [
+                "-c",
+                "config/napkin_mesh_fixed_handle.ini",
+                "-n", 
+                "napkin_mesh_fixed_handle_debug",
                 //"--reference_mlp_n_iterations", 
                 //"100", 
                 "-m",
@@ -94,7 +139,7 @@
             ]
         },
         {
-            "name": "non_flat_non_rectangular_surface",
+            "name": "arbitrary_mesh_blender",
             "type": "debugpy",
             "request": "launch",
             "program": "run_neuralclothsim.py",
@@ -102,9 +147,9 @@
             "justMyCode": true, 
             "args": [
                 "-c",
-                "config/non_flat_non_rectangular_surface.ini",
+                "config/arbitrary_mesh_blender.ini",
                 "-n", 
-                "non_flat_non_rectangular_surface_debug",
+                "arbitrary_mesh_blender_debug",
                 "-m",
                 "material/linear_1.ini"
             ]
@@ -137,15 +182,14 @@
                 "-c",
                 "config/skirt_twist.ini",
                 "-n", 
-                //"skirt_debug_canvas", 
-                "skirt_twist_debug_linear", 
+                "skirt_twist_debug", 
                 "-m",
                 "material/linear_1.ini"
                 //"material/canvas.ini"
             ]
         },
         {
-            "name": "skirt_static_rim",
+            "name": "skirt_fixed_waist",
             "type": "debugpy",
             "request": "launch",
             "program": "run_neuralclothsim.py",
@@ -153,10 +197,9 @@
             "justMyCode": true, 
             "args": [
                 "-c",
-                "config/skirt_static_rim.ini",
-                "-n", 
-                //"skirt_debug_canvas", 
-                "skirt_static_rim_debug", 
+                "config/skirt_fixed_waist.ini",
+                "-n",
+                "skirt_fixed_waist_debug", 
                 "-m",
                 //"material/linear_1.ini"
                 "material/canvas.ini"
