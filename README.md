@@ -114,7 +114,6 @@ Add nonboundary constraint results
 
 ## Create Your Own Simulation
 
-Reproducible results by setting the random seed
 Mention the required arguments
 config file
 boundary_condition (not required if collision)
@@ -131,6 +130,7 @@ histo: strain, validity of strain
 figure: metric tensor/strain, curvature tensor/strain, strain energy density, tensors are visualised only once for first iteration; minor differences due to sampling; Makes sense only for analytical surface due with grid sampling
 meshes: reference_state, simulated_state
 text: args
+Reproducible results by setting the random seed Set seed for reproducible results
 
 ## Acknowledgements
 This repository uses some of the source code from:

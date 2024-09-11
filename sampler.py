@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from config_parser import device
 
-# Parts of the code borrowed from Meta Platforms, Inc.
+# Parts of the code (sample_points_from_meshes) borrowed from Meta Platforms, Inc.
 from typing import Tuple, Union
 from pytorch3d.structures import Meshes
 from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals

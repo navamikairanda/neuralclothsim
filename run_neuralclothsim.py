@@ -40,7 +40,7 @@ def train():
     tb.set_tensorboard_writer(log_dir, args.debug)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
 
-    if args.reference_geometry_name != 'mesh': # for analytical surface, use equal number of spatial samples along each curvilinear coordinate
+    if args.reference_geometry_name != 'mesh': # for analytical surface, use equal number of samples along each curvilinear coordinate
         args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
     
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)

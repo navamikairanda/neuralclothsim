@@ -110,8 +110,7 @@ class NonLinearMaterial(Material):
         E12 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E_shell_basis, material_directions.d_2)
         E22 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_2, E_shell_basis, material_directions.d_2)
           
-        if self.StVK:        
-            # St. Venant-Kirchhoff model [Basar 2000]
+        if self.StVK:
             hyperelastic_strain_energy = self.a11 * 0.5 * E11 ** 2 + self.a12 * E11 * E22 + self.a22 * 0.5 * E22 ** 2 + self.G12 * E12 ** 2                  
         else:                
             E11_clamped = torch.clamp(E11, self.E_11_min, self.E_11_max)

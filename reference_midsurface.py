@@ -79,7 +79,7 @@ class ReferenceMidSurface():
             case 'rectangle_xy': #vertical
                 midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
             case 'rectangle_xz': #horizontal
-                midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2) #non-boundary constraint
+                midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2)
             case 'cylinder':
                 R = 0.25
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
