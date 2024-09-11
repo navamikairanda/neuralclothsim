@@ -13,10 +13,10 @@ def get_config_parser():
     parser.add_argument('--reference_geometry_name', type=str, required=True, help='name of the reference geometry; can be rectangle_xy, rectangle_xz,  cylinder, cone or mesh')
     parser.add_argument('--xi__1_max', type=float, default=2 * math.pi, help='max value for xi__1; 2 * pi for cylinder or cone, and Lx for rectangle. min value for xi__1 is assumed to be 0')
     parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
-    parser.add_argument('--boundary_condition_name', type=str, help='name of the spatio-temporal boundary condition; can be top_left_fixed, top_left_top_right_drape for rectangle, and two_rims_compression for cylinder, and top_rim_fixed, top_rim_torsion for cone')
+    parser.add_argument('--boundary_condition_name', type=str, required=True, help='name of the spatio-temporal boundary condition; can be top_left_fixed, top_left_top_right_drape for rectangle, and two_rims_compression for cylinder, and top_rim_fixed, top_rim_torsion for cone')
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
     
-    # The following parameters are relevant only if the reference geometry is a mesh (i.e. reference_geometry_name == 'mesh')
+    # additional parameters if the reference geometry is a mesh
     parser.add_argument('--reference_geometry_source', type=str, default='assets/meshes/flag.obj', help='source file for reference geometry')
     parser.add_argument('--reference_mlp_n_iterations', type=int, default=5000, help='number of iterations for fitting the reference geometry MLP')
     parser.add_argument('--reference_mlp_lrate', type=float, default=1e-5, help='learning rate for the reference geometry MLP')
@@ -30,9 +30,11 @@ def get_config_parser():
     parser.add_argument('--mass_area_density', type=float, default=0.144, help='mass area density or rho in kg/m^2 ')
     parser.add_argument('--thickness', type=float, default=0.0012, help='thickness or tau in meters')
     
+    # material parameters for linear material
     parser.add_argument('--youngs_modulus', type=float, default=9000, help='Young\'s modulus')
     parser.add_argument('--poissons_ratio', type=float, default=0.25, help='Poisson\'s ratio')
 
+    # material parameters for nonlinear material
     parser.add_argument('--a11', type=float, help='a11')
     parser.add_argument('--a12', type=float, help='a12')
     parser.add_argument('--a22', type=float, help='a22')
@@ -48,7 +50,6 @@ def get_config_parser():
     parser.add_argument('--alpha3', type=float, nargs='+', help='alpha3')
     parser.add_argument('--alpha4', type=float, nargs='+', help='alpha4')
     
-    # transition point to extrapolation
     parser.add_argument('--E_11_min', type=float, help='E_11_min')
     parser.add_argument('--E_11_max', type=float, help='E_11_max')
     parser.add_argument('--E_22_min', type=float, help='E_22_min')
@@ -71,6 +72,7 @@ def get_config_parser():
     parser.add_argument("--i_summary", type=int, default=100, help='frequency of logging losses')
     parser.add_argument("--i_test", type=int, default=100, help='frequency of evaluating NDF and saving resulting meshes during training')
     
+    # debug options
     parser.add_argument('--debug', action='store_true', help='whether to run NeuralClothSim in debug mode; this will log the reference geometric quantities (e.g. metric and curvature tensor), the strains, and the simulated states to TensorBoard')
     parser.add_argument('--i_debug', type=int, default=100, help='frequency of Tensordboard logging of debug info')
     
@@ -80,8 +82,7 @@ def get_config_parser():
     parser.add_argument('--test_only', action='store_true', help='evaluate NDF from i_ckpt and save resulting meshes; do not resume training')
     
     # testing options
-    parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples used for evaluation will match the vertices in the mesh') 
-    # when reference geometry is a mesh, the same vertices and faces are used for evaluation as the input mesh
+    parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
     parser.add_argument('--test_n_temporal_samples', type=int, default=20, help='N_t, number of temporal samples, at training')
                             
     return parser

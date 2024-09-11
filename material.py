@@ -97,19 +97,19 @@ class NonLinearMaterial(Material):
         return extrapolated_hyperelastic_strain_energy
             
     def compute_internal_energy(self, strain: Strain, ref_geometry: ReferenceGeometry, material_directions: MaterialOrthotropy, i: int, xi__3: float) -> torch.Tensor:
-        # _ob are the strains in the original basis
         # Eq. (22)
-        E11_ob = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
-        E12_ob = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
-        E22_ob = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
-        g__1__1, g__1__2, g__2__1, g__2__2 = ref_geometry.shell_base_vectors(xi__3)
+        E11_shell_basis = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
+        E12_shell_basis = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
+        E22_shell_basis = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
         
-        E = torch.einsum('ij,ijkl->ijkl', E11_ob, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_ob, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_ob, g__2__2)
-        E11 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E, material_directions.d_1)
-        E12 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E, material_directions.d_2)
-        E22 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_2, E, material_directions.d_2)
+        g__1__1, g__1__2, g__2__1, g__2__2 = ref_geometry.shell_base_vectors(xi__3)        
+        E_shell_basis = torch.einsum('ij,ijkl->ijkl', E11_shell_basis, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_shell_basis, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_shell_basis, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_shell_basis, g__2__2)
         
-        #E11, E12, E22 = E11_ob, E12_ob, E22_ob    
+        # In all the subsequent operations, strain components are in the material/orthotropy basis, i.e E_tilde in the supplement Eq. (29)
+        E11 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E_shell_basis, material_directions.d_1)
+        E12 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E_shell_basis, material_directions.d_2)
+        E22 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_2, E_shell_basis, material_directions.d_2)
+          
         if self.StVK:        
             # St. Venant-Kirchhoff model [Basar 2000]
             hyperelastic_strain_energy = self.a11 * 0.5 * E11 ** 2 + self.a12 * E11 * E22 + self.a22 * 0.5 * E22 ** 2 + self.G12 * E12 ** 2                  

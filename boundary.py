@@ -21,7 +21,7 @@ class Boundary:
         match self.boundary_condition_name:
             case 'top_left_fixed':
                 top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - top_left_corner)
+                deformations = deformations * (1 - top_left_corner) * initial_condition
             case 'two_rims_compression':                
                 bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
