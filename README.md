@@ -48,7 +48,6 @@ conda activate neuralclothsim
 ### High-level overview
 
 The codebase has the following structure:
-
 * Simulation configurations are defined in the `config/` directory. They include the scene description such as reference geometry, boundary condition, and external forces, as well as optimization configuration (e.g. learning rate) and testing configurations such as sampling rate. 
 * Material configurations are defined in the `material/` directory. Material models (linear, nonlinear, StVK, Clyde model etc..) and their corresponding strain energy computations are defined in `material.py`.
 * Entry point for the running the method is `run_neuralclothsim.py` and includes both training and testing scripts.
@@ -65,39 +64,48 @@ Usage details are here:
 ```
 python run_neuralclothsim.py --help 
 ``` 
-
 for full options command line arguments
 
 #### Napkin
 ```
-python run_neuralclothsim.py -c config/napkin_fixed_handle.ini --expt_name napkin_fixed_handle -m material/canvas.ini
-python run_neuralclothsim.py -c config/drape.ini --expt_name drape_linear -m material/linear_1.ini
-python run_neuralclothsim.py -c config/napkin.ini --expt_name napkin -m material/canvas.ini
+python run_neuralclothsim.py -c config/napkin_fixed_handle.ini --expt_name napkin_fixed_handle
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini --expt_name napkin_moving_handles
+python run_neuralclothsim.py -c config/napkin_fixed_edges.ini --expt_name napkin_fixed_edges
 ```
 
+#### Sleeve
 ```
-python run_neuralclothsim.py -c config/sleeve_buckle.ini --expt_name sleeve_buckle_canvas -m material/canvas.ini
-python run_neuralclothsim.py -c config/skirt_twist.ini --expt_name skirt_twist -m material/linear_1.ini
-python run_neuralclothsim.py -c config/skirt_static_rim.ini --expt_name skirt_static_rim -m material/canvas.ini
+python run_neuralclothsim.py -c config/sleeve_buckle.ini --expt_name sleeve_buckle
+python run_neuralclothsim.py -c config/sleeve_twist.ini --expt_name sleeve_twist
+```
+
+#### Skirts
+```
+python run_neuralclothsim.py -c config/skirt_fixed_waist.ini --expt_name skirt_fixed_waist
+python run_neuralclothsim.py -c config/skirt_twist.ini --expt_name skirt_twist
 ```
 
 #### Reference mesh
 Consistency experiment (Figs.6, XII)
 ```
-python run_neuralclothsim.py -c config/napkin_mesh.ini --expt_name napkin_mesh
-python run_neuralclothsim.py -c config/flag_mesh.ini --expt_name flag_mesh_vis_tangents
+python run_neuralclothsim.py -c config/napkin_mesh_fixed_handle.ini --expt_name napkin_mesh_fixed_handle
+python run_neuralclothsim.py -c config/flag_mesh.ini --expt_name flag_mesh
+
+python run_neuralclothsim.py -c config/arcsim_disk_15k.ini --expt_name arcsim_disk_15k
+python run_neuralclothsim.py -c config/arbitrary_mesh_blender.ini --expt_name arbitrary_mesh_blender
 ```
 
-Add nonboundary constraint results
-
 Non-linear varying material
-python run_neuralclothsim.py -c config/drape.ini --expt_name drape_nl_canvas -m material/canvas.ini
-python run_neuralclothsim.py -c config/drape.ini --expt_name drape_linear -m material/linear_1.ini
+```
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/linear_1.ini
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/canvas.ini
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/canvas.ini --StVK
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/silk.ini
+```
+Logs in and debug results
 ```
 tensorboard --logdir logs
 ```
-
-Similarly, replacing `napkin` with `sleeve` or `skirt` will reproduce the corresponding simulations.
 
 ### Visualisation
 

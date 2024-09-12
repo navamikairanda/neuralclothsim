@@ -23,7 +23,7 @@ def get_config_parser():
     parser.add_argument('--reference_boundary_vertices', type=int, nargs='+', help='vertices for boundary condition on the reference geometry')
     
     # material parameters
-    parser.add('-m', '--material_filepath', is_config_file=True, default='material/canvas.ini', help='name of the material')
+    parser.add('-m', '--material_filepath', is_config_file=True, default='material/linear_1.ini', help='name of the material')
     parser.add_argument('--material_type', type=str, help='type of material; can be linear (isotropic) or nonlinear (orthotropic Clyde model)')
     parser.add_argument('--StVK', action='store_true', help='whether to use the St.Venant-Kirchhoff simplification of the Clyde material model')
     
