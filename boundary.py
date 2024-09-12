@@ -49,12 +49,12 @@ class Boundary:
                 rim_displacement = torch.cat([torch.zeros_like(temporal_coords), temporal_motion, torch.zeros_like(temporal_coords)], dim=2)
                 deformations = deformations * (1 - bottom_rim) * (1 - top_rim) * initial_condition - rim_displacement * top_rim + rim_displacement * bottom_rim
             case 'top_bottom_rims_torsion':
-                bottom_rim = torch.exp(-(curvilinear_coords[...,1][...,None] ** 2)/self.boundary_support)
-                top_rim = torch.exp(-((curvilinear_coords[...,1][...,None] - self.theta__2_scale) ** 2)/self.boundary_support)
+                bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
+                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 R = 0.25
                 rotation = 3 * math.pi / 4 
-                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0][...,None] + (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0][...,None])), R * (torch.sin(curvilinear_coords[...,0][...,None] + (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0][...,None])), torch.zeros_like(temporal_coords)], dim=2)
-                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0][...,None] - (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0][...,None])), R * (torch.sin(curvilinear_coords[...,0][...,None] - (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0][...,None])), torch.zeros_like(temporal_coords)], dim=2)            
+                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] + (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0:1])), R * (torch.sin(curvilinear_coords[...,0:1] + (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords)], dim=2)
+                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] - (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0:1])), R * (torch.sin(curvilinear_coords[...,0:1] - (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords)], dim=2)            
                 #output = output * (1 - bottom_rim) * (1 - top_rim) * initial_condition + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim
                 output = (output * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim) * initial_condition
                 #output = (output * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim) * initial_condition #Leads to inward motion of cylinder at time step 7/10                
@@ -64,7 +64,8 @@ class Boundary:
             case 'top_rim_torsion':
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 R_top = 0.2
-                top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_coords * math.pi/2) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_coords * math.pi/2) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
+                temporal_motion = temporal_coords * math.pi/2 if self.trajectory else torch.ones_like(temporal_coords) * math.pi/2
+                top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
                 deformations = deformations * (1 - top_rim) * initial_condition + top_rim_displacement * top_rim            
             case 'mesh_vertices':
                 for i in range(self.boundary_curvilinear_coords.shape[0]):
