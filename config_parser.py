@@ -15,6 +15,7 @@ def get_config_parser():
     parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
     parser.add_argument('--boundary_condition_name', type=str, default='top_left_fixed', help='name of the spatio-temporal boundary condition; can be top_left_fixed, top_left_top_right_drape, adjacent_edges_fixed,  for rectangle, and two_rims_compression for cylinder/sleeve, and top_rim_fixed, top_rim_torsion for cone/skirt')
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
+    parser.add_argument('--trajectory', action='store_true', help='whether to simulate the trajectory from the reference state to the quasi-static state; otherwise the quasistatic solutions are computed at all temporal samples')
     
     # additional parameters if the reference geometry is a mesh
     parser.add_argument('--reference_geometry_source', type=str, default='assets/textured_uniform_1_020.obj', help='source file for reference geometry')

@@ -2,10 +2,11 @@ import math
 import torch
 
 class Boundary:
-    def __init__(self, reference_geometry_name, boundary_condition_name, curvilinear_space, boundary_curvilinear_coords=None):
+    def __init__(self, reference_geometry_name, boundary_condition_name, curvilinear_space, trajectory, boundary_curvilinear_coords=None):
         self.reference_geometry_name = reference_geometry_name
         self.boundary_condition_name = boundary_condition_name
         self.curvilinear_space = curvilinear_space
+        self.trajectory = trajectory
         self.boundary_curvilinear_coords = boundary_curvilinear_coords
         self.boundary_support = 0.01
 
@@ -17,7 +18,7 @@ class Boundary:
         return normalized_coords
     
     def dirichlet_condition(self, deformations, curvilinear_coords, temporal_coords):
-        initial_condition = temporal_coords ** 2 # or torch.ones_like(temporal_coords)
+        initial_condition = temporal_coords ** 2 if self.trajectory else torch.ones_like(temporal_coords)
         match self.boundary_condition_name:
             case 'top_left_fixed':
                 top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)

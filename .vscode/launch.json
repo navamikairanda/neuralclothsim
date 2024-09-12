@@ -16,8 +16,9 @@
                 "config/napkin_fixed_handle.ini", 
                 "-n", 
                 "napkin_fixed_handle_debug",
-                "-m",
-                "material/linear_1.ini"
+                "--trajectory"
+                //"-m",
+                //"material/linear_1.ini"
             ]
         },
         {
