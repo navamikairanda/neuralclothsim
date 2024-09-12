@@ -103,8 +103,8 @@ python run_neuralclothsim.py -c config/arbitrary_mesh_blender.ini
 #### Varying material
 You can specify the material of your choice using `-m material/{material_name}.ini` for any of the above experiments. Moreover, one could specify `--StVK` for St. Venant-Kirchoff material. For example,
 ```
-python run_neuralclothsim.py -c config/napkin_moving_handles.ini --expt_name napkin_moving_handles_canvas -m material/canvas.ini --StVK
-python run_neuralclothsim.py -c config/napkin_moving_handles.ini --expt_name napkin_moving_handles_canvas -m material/silk.ini
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini --expt_name napkin_canvas_stvk -m material/canvas.ini --StVK
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini --expt_name napkin_silk -m material/silk.ini
 ```
 
 ## FAQ
