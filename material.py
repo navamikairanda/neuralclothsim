@@ -5,22 +5,23 @@ from strain import Strain
 from reference_geometry import ReferenceGeometry
     
 class Material():
-    def __init__(self, mass_area_density: float, thickness: float):
+    def __init__(self, mass_area_density: float, thickness: float, ref_geometry: ReferenceGeometry):
         self.thickness = thickness
         self.mass_area_density = mass_area_density
+        self.ref_geometry = ref_geometry
     
-    def compute_internal_energy(self, strain: Strain, ref_geometry: ReferenceGeometry) -> torch.Tensor:
+    def compute_internal_energy(self, strain: Strain) -> torch.Tensor:
         raise NotImplementedError
         
 class LinearMaterial(Material):
-    def __init__(self, args):
-        super().__init__(args.mass_area_density, args.thickness)
+    def __init__(self, args, ref_geometry):
+        super().__init__(args.mass_area_density, args.thickness, ref_geometry)
         self.poissons_ratio = args.poissons_ratio
         self.D = (args.youngs_modulus * args.thickness) / (1 - args.poissons_ratio ** 2)
         self.B = (args.thickness ** 2) * self.D / 12 
     
-    def compute_internal_energy(self, strain: Strain, ref_geometry: ReferenceGeometry) -> torch.Tensor:
-        H__1111, H__1112, H__1122, H__1212, H__1222, H__2222 = ref_geometry.elastic_tensor(self.poissons_ratio)
+    def compute_internal_energy(self, strain: Strain) -> torch.Tensor:
+        H__1111, H__1112, H__1122, H__1212, H__1222, H__2222 = self.ref_geometry.elastic_tensor(self.poissons_ratio)
             
         n__1__1 = H__1111 * strain.epsilon_1_1 + 2 * H__1112 * strain.epsilon_1_2 + H__1122 * strain.epsilon_2_2
         n__1__2 = H__1112 * strain.epsilon_1_1 + 2 * H__1212 * strain.epsilon_1_2 + H__1222 * strain.epsilon_2_2
@@ -41,8 +42,8 @@ class MaterialOrthotropy(NamedTuple):
     d_2: torch.Tensor
             
 class NonLinearMaterial(Material):
-    def __init__(self, args):
-        super().__init__(args.mass_area_density, args.thickness)
+    def __init__(self, args, ref_geometry):
+        super().__init__(args.mass_area_density, args.thickness, ref_geometry)
         self.a11, self.a12, self.a22, self.G12 = args.a11, args.a12, args.a22, args.G12
         
         self.StVK = args.StVK        
@@ -96,13 +97,13 @@ class NonLinearMaterial(Material):
         
         return extrapolated_hyperelastic_strain_energy
             
-    def compute_internal_energy(self, strain: Strain, ref_geometry: ReferenceGeometry, material_directions: MaterialOrthotropy, i: int, xi__3: float) -> torch.Tensor:
+    def compute_internal_energy(self, strain: Strain, material_directions: MaterialOrthotropy, i: int, xi__3: float) -> torch.Tensor:
         # Eq. (22)
         E11_shell_basis = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
         E12_shell_basis = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
         E22_shell_basis = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
         
-        g__1__1, g__1__2, g__2__1, g__2__2 = ref_geometry.shell_base_vectors(xi__3)        
+        g__1__1, g__1__2, g__2__1, g__2__2 = self.ref_geometry.shell_base_vectors(xi__3)        
         E_shell_basis = torch.einsum('ij,ijkl->ijkl', E11_shell_basis, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_shell_basis, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_shell_basis, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_shell_basis, g__2__2)
         
         # In all the subsequent operations, strain components are in the material/orthotropy basis, i.e E_tilde in the supplement Eq. (29)
