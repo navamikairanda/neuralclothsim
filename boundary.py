@@ -49,11 +49,12 @@ class Boundary:
                 bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 R = 0.25
-                rotation = 3 * math.pi / 4 
-                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] + (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0:1])), R * (torch.sin(curvilinear_coords[...,0:1] + (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords)], dim=2)
-                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] - (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0:1])), R * (torch.sin(curvilinear_coords[...,0:1] - (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords)], dim=2)            
+                rotation = 3 * math.pi / 4
+                #temporal_motion = temporal_coords * math.pi/2 if self.trajectory else torch.ones_like(temporal_coords) * math.pi/2 
+                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] + (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords), R * (torch.sin(curvilinear_coords[...,0:1] + (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
+                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] - (temporal_coords ** 2) * rotation) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords), R * (torch.sin(curvilinear_coords[...,0:1] - (temporal_coords ** 2) * rotation) - torch.sin(curvilinear_coords[...,0:1])), ], dim=2)            
                 #output = output * (1 - bottom_rim) * (1 - top_rim) * initial_condition + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim
-                output = (output * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim) * initial_condition
+                deformations = (deformations * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim) * initial_condition
                 #output = (output * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim) * initial_condition #Leads to inward motion of cylinder at time step 7/10                
             case 'top_rim_fixed':
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
