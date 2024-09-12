@@ -10,7 +10,7 @@ from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler, CurvilinearSpace
 from reference_geometry import ReferenceGeometry
 from modules import Siren
-from energy import compute_energy
+from energy import Energy
 from logger import get_logger
 from config_parser import get_config_parser, device
 from reference_midsurface import ReferenceMidSurface
@@ -71,15 +71,16 @@ def train():
         test(ndf, args.test_n_temporal_samples, meshes_dir, f'{global_step}', reference_midsurface)
         return
     
-    material = LinearMaterial(args) if args.material_type == 'linear' else NonLinearMaterial(args)
+    material = LinearMaterial(args) if args.material_type == 'linear' else NonLinearMaterial(args)    
     external_load = torch.tensor(args.gravity_acceleration, device=device) * material.mass_area_density
-
+    external_load = external_load.expand(1, args.train_n_temporal_samples * args.train_n_spatial_samples, 3)
+    energy = Energy(reference_geometry, material, external_load, args.i_debug)
+    
     if args.reference_geometry_name == 'mesh':
         sampler = MeshSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface.template_mesh)
     else:
         sampler = GridSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, curvilinear_space)
 
-    external_load = external_load.expand(1, args.train_n_temporal_samples * args.train_n_spatial_samples, 3)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
     if tb.writer:
@@ -89,8 +90,7 @@ def train():
         curvilinear_coords, temporal_coords = next(iter(dataloader))
         reference_geometry(curvilinear_coords, i==0)
         deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
-
-        mechanical_energy = compute_energy(deformations, reference_geometry, material, external_load, temporal_coords, i, args.i_debug)
+        mechanical_energy = energy(deformations, temporal_coords, i)
         loss = mechanical_energy.mean()
         
         optimizer.zero_grad()
