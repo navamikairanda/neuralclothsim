@@ -6,8 +6,8 @@ import numpy as np
 from tqdm import trange
 from pytorch3d.io import save_obj, load_obj
 
-import tb
-from config_parser import device
+import utils.tb as tb
+from utils.config_parser import device
 from modules import GELUReference
 from sampler import get_mgrid, sample_points_from_meshes
 from pytorch3d.structures import Meshes

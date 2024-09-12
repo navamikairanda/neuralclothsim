@@ -1,10 +1,10 @@
 import torch
 from torch.nn.functional import normalize
-import tb
-from diff_operators import jacobian
-from config_parser import device
+import utils.tb as tb
+from utils.diff_operators import jacobian
+from utils.config_parser import device
 from material import Material, LinearMaterial, NonLinearMaterial, MaterialOrthotropy
-from plot_helper import get_plot_single_tensor
+from utils.plot import get_plot_single_tensor
 from reference_geometry import ReferenceGeometry
 from strain import compute_strain                
 

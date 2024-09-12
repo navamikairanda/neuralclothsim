@@ -2,7 +2,7 @@ import math
 import torch
 import numpy as np
 from torch.utils.data import Dataset
-from config_parser import device
+from utils.config_parser import device
 
 # Parts of the code (sample_points_from_meshes) borrowed from Meta Platforms, Inc.
 from typing import Tuple, Union

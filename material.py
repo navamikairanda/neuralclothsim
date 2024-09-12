@@ -1,6 +1,6 @@
 import torch
 from typing import NamedTuple
-import tb
+import utils.tb as tb
 from strain import Strain
 from reference_geometry import ReferenceGeometry
     

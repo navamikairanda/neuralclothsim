@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.nn.functional import normalize
-from config_parser import device
 from boundary import Boundary
 
 class SineLayer(nn.Module):      

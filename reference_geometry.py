@@ -1,9 +1,9 @@
 import torch
 from torch.nn.functional import normalize
 
-import tb
-from diff_operators import jacobian
-from plot_helper import get_plot_grid_tensor
+import utils.tb as tb
+from utils.diff_operators import jacobian
+from utils.plot import get_plot_grid_tensor
 from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 

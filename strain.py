@@ -1,9 +1,9 @@
 import torch
 from typing import NamedTuple
-import tb
-from diff_operators import jacobian
+import utils.tb as tb
+from utils.diff_operators import jacobian
 from reference_geometry import ReferenceGeometry
-from plot_helper import get_plot_grid_tensor
+from utils.plot import get_plot_grid_tensor
 
 class Strain(NamedTuple):
     epsilon_1_1: torch.Tensor

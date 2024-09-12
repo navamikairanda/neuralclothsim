@@ -2,7 +2,7 @@ import os
 import imageio
 import torch
 from pytorch3d.io import save_obj
-from config_parser import device 
+from utils.config_parser import device 
 
 def save_meshes(positions, faces, meshes_dir, i, n_temporal_samples, verts_uvs=None, tex_image_file=None):
     n_vertices = positions.shape[1] // n_temporal_samples

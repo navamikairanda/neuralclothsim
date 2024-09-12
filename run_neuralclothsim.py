@@ -5,17 +5,17 @@ from tqdm import trange
 from shutil import copyfile
 
 from torch.utils.data import DataLoader
-import tb
+import utils.tb as tb
 from material import LinearMaterial, NonLinearMaterial
 from sampler import GridSampler, MeshSampler, CurvilinearSpace
 from reference_geometry import ReferenceGeometry
 from modules import Siren
 from energy import Energy
-from logger import get_logger
-from config_parser import get_config_parser, device
+from utils.logger import get_logger
+from utils.config_parser import get_config_parser, device
 from reference_midsurface import ReferenceMidSurface
 from boundary import Boundary
-from file_io import save_meshes
+from utils.file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
 def test(ndf: Siren, test_n_temporal_samples: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface):
