@@ -57,7 +57,7 @@ The codebase has the following structure:
 * `sampler.py` generates grid or mesh-based training samples on the cloth.
 
 ### Running code
-Check out `run_neuralclothsim.py` for reproducing simulations! It includes both training (solving physics to train NDF) and testing (extracting simulated meshes from the NDF) scripts. For training, simply use 
+Check out `run_neuralclothsim.py` for reproducing simulations. It includes both training (solving physics to train NDF) and testing (extracting simulated meshes from the NDF) scripts. For training, simply use 
 ```
 python run_neuralclothsim.py -c config/{config_file_name}.ini -n {expt_name}
 ```
@@ -70,10 +70,11 @@ The exact usage details and all arguments can be found with
 ```
 python run_neuralclothsim.py --help 
 ``` 
-The logs, including simulated meshes and checkpoints, will be accessible at `logging_dir`. Further, to debug and monitor progress, the training code writes tensorboard summaries, which can be viewed with
+The logs, including simulated meshes and checkpoints, will be accessible at `logging_dir`. Further, to debug and monitor progress, the training code writes summaries to tensorboard which can be viewed with
 ```
 tensorboard --logdir {logging_dir}
 ```
+TODO mention trajectory visualization
 
 #### Napkin 
 The napkin experiments, i.e. a square cloth subject to gravity under different biundary conditions such as a fixed corner handle, two corner handles moving inwards or with fixed edges can be reproduced with:
