@@ -24,7 +24,7 @@ If you want to experiment with Siren, we have written a Colab. It's quite compre
 TODO: add link
 
 ## Installation
-Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies
+Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies.
 
 ```
 conda create --name neuralclothsim python=3.10
@@ -48,70 +48,78 @@ conda activate neuralclothsim
 ### High-level overview
 
 The codebase has the following structure:
-* Simulation configurations are defined in the `config/` directory. They include the scene description such as reference geometry, boundary condition, and external forces, as well as optimization configuration (e.g. learning rate) and testing configurations such as sampling rate. 
+* Simulation configurations are defined in the `config/` directory. They include the scene description, such as reference geometry, boundary condition, external forces, optimisation configuration (e.g. learning rate), and testing configurations, such as sampling rate. 
 * Material configurations are defined in the `material/` directory. Material models (linear, nonlinear, StVK, Clyde model etc..) and their corresponding strain energy computations are defined in `material.py`.
-* Entry point for the running the method is `run_neuralclothsim.py` and includes both training and testing scripts.
-* `modules.py` contains the implementation of the neural deformation field and `boundary.py` contains the Dirichlet and periodic boundary constaints.
-* `energy.py` contains the implementation of the loss (i.e. potential energies) of the simulation setup and `strain.py` contains calculation of stretching and bending strain. 
+* The entry point for running the method is `run_neuralclothsim.py`, which includes training and testing scripts.
+* `modules.py` contains the implementation of the neural deformation field, and `boundary.py` contains the Dirichlet and periodic boundary constraints.
+* `energy.py` computes the loss, i.e. potential energies of the simulation system, and `strain.py` includes the calculation of stretching and bending strain. 
 * `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the thin shell (cloth) and the derived differential quantities.
-* `sampler.py` contains the implementation of the generating training samples (grid and mesh-based) on the cloth.
+* `sampler.py` generates grid or mesh-based training samples on the cloth.
 
-### Running
-#TODO: I am here
-check out run_neuralclothsim.py, reproduce simulations with
+### Running code
+Check out `run_neuralclothsim.py` for reproducing simulations! It includes both training (solving physics to train NDF) and testing (extracting simulated meshes from the NDF) scripts. For training, simply use 
+```
+python run_neuralclothsim.py -c config/{config_file_name}.ini -n {expt_name}
+```
+and for testing 
+```
+python run_neuralclothsim.py -c config/{config_file_name}.ini -n {expt_name} --test_only --i_ckpt {trained_checkpoint}
+```
 
-Usage details are here: 
+The exact usage details and all arguments can be found with
 ```
 python run_neuralclothsim.py --help 
 ``` 
-for full options command line arguments
-
-#### Napkin
+The logs, including simulated meshes and checkpoints, will be accessible at `logging_dir`. Further, to debug and monitor progress, the training code writes tensorboard summaries, which can be viewed with
 ```
-python run_neuralclothsim.py -c config/napkin_fixed_handle.ini --expt_name napkin_fixed_handle
-python run_neuralclothsim.py -c config/napkin_moving_handles.ini --expt_name napkin_moving_handles
-python run_neuralclothsim.py -c config/napkin_fixed_edges.ini --expt_name napkin_fixed_edges
+tensorboard --logdir {logging_dir}
+```
+
+#### Napkin 
+The napkin experiments, i.e. a square cloth subject to gravity under different biundary conditions such as a fixed corner handle, two corner handles moving inwards or with fixed edges can be reproduced with:
+```
+python run_neuralclothsim.py -c config/napkin_fixed_handle.ini 
+python run_neuralclothsim.py -c config/napkin_moving_handles.ini
+python run_neuralclothsim.py -c config/napkin_fixed_edges.ini
 ```
 
 #### Sleeve
+To perform sleeve compression and torsion with a cylindrical shell, run:
 ```
-python run_neuralclothsim.py -c config/sleeve_buckle.ini --expt_name sleeve_buckle
-python run_neuralclothsim.py -c config/sleeve_twist.ini --expt_name sleeve_twist
+python run_neuralclothsim.py -c config/sleeve_buckle.ini
+python run_neuralclothsim.py -c config/sleeve_twist.ini
 ```
 
-#### Skirts
+#### Skirt
+Further, the experimental results of skirt under gravity with fixed or twisted waist can be generated with:
 ```
-python run_neuralclothsim.py -c config/skirt_fixed_waist.ini --expt_name skirt_fixed_waist
-python run_neuralclothsim.py -c config/skirt_twist.ini --expt_name skirt_twist
+python run_neuralclothsim.py -c config/skirt_fixed_waist.ini
+python run_neuralclothsim.py -c config/skirt_twist.ini
 ```
 
 #### Reference mesh
 Consistency experiment (Figs.6, XII)
 ```
-python run_neuralclothsim.py -c config/napkin_mesh_fixed_handle.ini --expt_name napkin_mesh_fixed_handle
-python run_neuralclothsim.py -c config/flag_mesh.ini --expt_name flag_mesh
+python run_neuralclothsim.py -c config/napkin_mesh_fixed_handle.ini
+python run_neuralclothsim.py -c config/flag_mesh.ini
 
-python run_neuralclothsim.py -c config/arcsim_disk_15k.ini --expt_name arcsim_disk_15k
-python run_neuralclothsim.py -c config/arbitrary_mesh_blender.ini --expt_name arbitrary_mesh_blender
+python run_neuralclothsim.py -c config/arcsim_disk_15k.ini
+python run_neuralclothsim.py -c config/arbitrary_mesh_blender.ini
 ```
 
-Non-linear varying material
+#### Varying material
+You can specify the material of your choice from `-m material/{material_name}.ini`for any of the above experiments.As well as `--StVK` for St. Venant-Kirchoff version. For example,
 ```
-python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/linear_1.ini
-python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/canvas.ini
 python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/canvas.ini --StVK
 python run_neuralclothsim.py -c config/napkin_moving_handles.ini.ini --expt_name napkin_moving_handles_canvas -m material/silk.ini
 ```
-Logs in and debug results
-```
-tensorboard --logdir logs
-```
+This leads to fold formation at the top, as visualised in Fig. 4-(a) and in Fig. II for varying fabrics such as cotton and silk.
 
-### Visualisation
+### Evaluation
 
-To visualise the trained models, run the following command:
+To evaluated and visualise the trained models, run the following command:
 ```
-python run_neuralclothsim.py -c config/drape.ini --expt_name drape_nl_canvas -m material/canvas.ini --test_only -i_ckpt
+python run_neuralclothsim.py -c config/drape.ini --expt_name drape_nl_canvas -m material/canvas.ini --test_only -i_ckpt {}
 ```
 
 We shared some pre-trained checkpoints
@@ -133,14 +141,13 @@ use existing material or create new material
 
 - *I am running out of GPU memory, what do I do?* The GPU memory consumption is determined by the number of samples drawn from the reference midsurface. You can reduce the number of samples in the `config/*.ini` file.
 - *How did we generate UV map for single panel (piece of cloth rather than a garment)?* Blender step; Import mesh, UV Editing, Edit model, UV unwrap (angle-based), export mesh as .obj with uv. Delete .mtl file. Veryify using Set Texture
-- *Debug Mode* 
+- *How do I debug?* 
 losses/scalars: total, physics, collision, deformation, reference mlp (All iterations)
 histo: strain, validity of strain
 figure: metric tensor/strain, curvature tensor/strain, strain energy density, tensors are visualised only once for first iteration; minor differences due to sampling; Makes sense only for analytical surface due with grid sampling
 meshes: reference_state, simulated_state
 text: args
 Reproducible results by setting the random seed Set seed for reproducible results
-- *Garment* No support for seams, future work
 
 ## Acknowledgements
 This repository uses some of the source code from:
