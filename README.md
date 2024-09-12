@@ -1,5 +1,5 @@
 # NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory
-### [Project Page](https://4dqv.mpi-inf.mpg.de/NeuralClothSim/) | [Paper](https://arxiv.org/pdf/2308.12970) | [Video](https://www.youtube.com/watch?v=z-7MBiAi7SM) 
+### [Project Page](https://4dqv.mpi-inf.mpg.de/NeuralClothSim/) | [arXiv](https://arxiv.org/pdf/2308.12970) | [Video](https://www.youtube.com/watch?v=z-7MBiAi7SM) 
 [![Explore NeuralClothSim in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navamikairanda/neuralclothsim/blob/main/neuralclothsim.ipynb)<br>
 
 [Navami Kairanda](https://people.mpi-inf.mpg.de/~nkairand/),
@@ -41,7 +41,7 @@ conda activate neuralclothsim
 
 ## Usage
 
-### High-level overview
+### High-level Overview
 
 The codebase has the following structure:
 * Simulation configurations are defined in the `config/` directory. They include the scene description, such as reference geometry, boundary condition, external forces, optimisation configuration (e.g. learning rate), and testing configurations, such as sampling rate. 
@@ -52,7 +52,7 @@ The codebase has the following structure:
 * `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the thin shell (cloth) and the derived differential quantities.
 * `sampler.py` generates grid or mesh-based training samples on the cloth.
 
-### Running code
+### Running Code
 Check out `run_neuralclothsim.py` for reproducing simulations. It includes both training (solving physics to train NDF) and testing (extracting simulated meshes from the NDF) scripts. For training, simply use 
 ```
 python run_neuralclothsim.py -c config/{config_file_name}.ini -n {expt_name}
@@ -130,3 +130,6 @@ If you use this code for your research, please cite:
 	year={2023} 
 }
 ```
+
+## License
+This software is provided freely for non-commercial use. We release this code under the MIT license, which you can find in the file LICENSE.
