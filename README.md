@@ -8,7 +8,6 @@
 [Vladislav Golyanik](https://people.mpi-inf.mpg.de/~golyanik/) <br>
 Max Planck Institute for Informatics <br>
 
-### !!!UNDER CONSTRUCTION!! PLEASE WAIT FOR THIS MESSAGE TO GO AWAY BEFORE YOU USE THE REPO!!! ###
 This repository contains the official implementation of the paper "NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory".
 
 [<img src="assets/thumbnail.png" width="500">](https://www.youtube.com/watch?v=z-7MBiAi7SM)

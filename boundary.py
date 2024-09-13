@@ -61,7 +61,8 @@ class Boundary:
             case 'top_rim_torsion':
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 R_top = 0.2
-                temporal_motion = temporal_coords * math.pi/2 if self.trajectory else torch.ones_like(temporal_coords) * math.pi/2
+                rotation = math.pi / 2
+                temporal_motion = temporal_coords * rotation if self.trajectory else torch.ones_like(temporal_coords) * rotation
                 top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_coords), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
                 deformations = deformations * (1 - top_rim) * initial_condition + top_rim_displacement * top_rim            
             case 'mesh_vertices':
