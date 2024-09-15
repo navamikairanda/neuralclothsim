@@ -7,7 +7,7 @@ from utils.plot import get_plot_grid_tensor
 from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, reference_midsurface: ReferenceMidSurface):
+    def __init__(self, reference_midsurface: ReferenceMidSurface, n_spatial_samples: int, n_temporal_samples: int):
         self.n_spatial_samples = n_spatial_samples 
         self.n_temporal_samples = n_temporal_samples
         self.reference_midsurface = reference_midsurface
@@ -21,7 +21,6 @@ class ReferenceGeometry():
         self.christoffel_symbol()
         self.coord_transform()   
         self.curvilinear_coords = self.curvilinear_coords.repeat(1, self.n_temporal_samples, 1)
-        self.midsurface_positions = self.midsurface_positions.repeat(1, self.n_temporal_samples, 1)
         self.a_1 = self.a_1.repeat(1, self.n_temporal_samples, 1)
         self.a_2 = self.a_2.repeat(1, self.n_temporal_samples, 1)
         self.a_3 = self.a_3.repeat(1, self.n_temporal_samples, 1)

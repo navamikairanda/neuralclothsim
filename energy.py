@@ -9,7 +9,7 @@ from reference_geometry import ReferenceGeometry
 from strain import compute_strain                
 
 class Energy:
-    def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration, trajectory: bool, i_debug: int):
+    def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, trajectory: bool, i_debug: int):
         self.ref_geometry = ref_geometry
         self.material = material
         external_load = torch.tensor(gravity_acceleration, device=device) * material.mass_area_density
@@ -38,11 +38,9 @@ class Energy:
             hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain, material_directions, i, 0.)
             hyperelastic_strain_energy_bottom = self.material.compute_internal_energy(strain, material_directions, i, 0.5 * self.material.thickness)                      
             
-            deformations_top = deformations - 0.5 * self.material.thickness * normal_difference
-            deformations_bottom = deformations + 0.5 * self.material.thickness * normal_difference
-            external_energy_top = torch.einsum('ijk,ijk->ij', self.external_load, deformations_top)
+            external_energy_top = torch.einsum('ijk,ijk->ij', self.external_load, deformations - 0.5 * self.material.thickness * normal_difference)
             external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
-            external_energy_bottom = torch.einsum('ijk,ijk->ij', self.external_load, deformations_bottom)
+            external_energy_bottom = torch.einsum('ijk,ijk->ij', self.external_load, deformations + 0.5 * self.material.thickness * normal_difference)
             mechanical_energy = (hyperelastic_strain_energy_top - external_energy_top) + 4 * (hyperelastic_strain_energy_mid - external_energy_mid) + (external_energy_bottom - hyperelastic_strain_energy_bottom)
             if self.trajectory:
                 velocity = jacobian(deformations, temporal_coords)[0]

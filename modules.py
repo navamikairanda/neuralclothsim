@@ -41,7 +41,7 @@ class Siren(nn.Module):
             self.net.append(SineLayer(hidden_features, out_features, is_first=False, omega_0=hidden_omega_0))    
         self.net = nn.Sequential(*self.net)
     
-    def forward(self, curvilinear_coords: torch.Tensor, temporal_coords: torch.Tensor):                
+    def forward(self, curvilinear_coords: torch.Tensor, temporal_coords: torch.Tensor) -> torch.Tensor:                
 
         normalized_coords = self.boundary.periodic_condition_and_normalization(curvilinear_coords, temporal_coords)        
         deformations = self.net(normalized_coords)

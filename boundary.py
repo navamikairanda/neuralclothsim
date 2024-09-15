@@ -1,8 +1,9 @@
 import math
 import torch
+from sampler import CurvilinearSpace
 
 class Boundary:
-    def __init__(self, reference_geometry_name, boundary_condition_name, curvilinear_space, trajectory, boundary_curvilinear_coords=None):
+    def __init__(self, reference_geometry_name: str, boundary_condition_name: str, curvilinear_space: CurvilinearSpace, trajectory: bool, boundary_curvilinear_coords: torch.Tensor = None):
         self.reference_geometry_name = reference_geometry_name
         self.boundary_condition_name = boundary_condition_name
         self.curvilinear_space = curvilinear_space
@@ -10,14 +11,14 @@ class Boundary:
         self.boundary_curvilinear_coords = boundary_curvilinear_coords
         self.boundary_support = 0.01
 
-    def periodic_condition_and_normalization(self, curvilinear_coords, temporal_coords):
+    def periodic_condition_and_normalization(self, curvilinear_coords: torch.Tensor, temporal_coords: torch.Tensor) -> torch.Tensor:
         if self.reference_geometry_name in ['cylinder', 'cone']:
             normalized_coords = torch.cat([temporal_coords, (torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
         else:
             normalized_coords = torch.cat([temporal_coords, curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
         return normalized_coords
     
-    def dirichlet_condition(self, deformations, curvilinear_coords, temporal_coords):
+    def dirichlet_condition(self, deformations: torch.Tensor, curvilinear_coords: torch.Tensor, temporal_coords: torch.Tensor) -> torch.Tensor:
         initial_condition = temporal_coords ** 2 if self.trajectory else torch.ones_like(temporal_coords)
         match self.boundary_condition_name:
             case 'top_left_fixed':

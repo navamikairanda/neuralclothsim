@@ -1,6 +1,5 @@
 import torch
 import os
-import math
 from tqdm import trange
 from shutil import copyfile
 
@@ -18,7 +17,7 @@ from boundary import Boundary
 from utils.file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
-def test(ndf: Siren, test_n_temporal_samples: int, meshes_dir: str, i: int, reference_midsurface: ReferenceMidSurface):
+def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, test_n_temporal_samples: int, meshes_dir: str, i: int):
     
     test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_n_temporal_samples, 1), reference_midsurface.temporal_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_n_temporal_samples, 1) + test_deformations
@@ -40,9 +39,6 @@ def train():
     tb.set_tensorboard_writer(log_dir, args.debug)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
 
-    if args.reference_geometry_name != 'mesh': # for analytical surface, use equal number of samples along each curvilinear coordinate
-        args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
-    
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
     boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, args.trajectory, reference_midsurface.boundary_curvilinear_coords)
@@ -67,10 +63,11 @@ def train():
         global_step = 0
     
     if args.test_only:
-        test(ndf, args.test_n_temporal_samples, meshes_dir, f'{global_step}', reference_midsurface)
+        logger.info(f'Evaluating NDF from checkpoint {ckpts[-1]}')
+        test(ndf, reference_midsurface, args.test_n_temporal_samples, meshes_dir, global_step)
         return
     
-    reference_geometry = ReferenceGeometry(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface)
+    reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples, args.train_n_temporal_samples)
     material = LinearMaterial(args, reference_geometry) if args.material_type == 'linear' else NonLinearMaterial(args, reference_geometry)
     energy = Energy(reference_geometry, material, args.gravity_acceleration, args.trajectory, args.i_debug)
     
@@ -114,7 +111,7 @@ def train():
             }, os.path.join(weights_dir, f'{i:06d}.tar'))
             
         if not i % args.i_test:            
-            test(ndf, args.test_n_temporal_samples, meshes_dir, i, reference_midsurface)
+            test(ndf, reference_midsurface, args.test_n_temporal_samples, meshes_dir, i)
     tb.writer.flush()
     tb.writer.close()
 

@@ -42,7 +42,7 @@ def covariant_first_derivative_of_covariant_second_order_tensor(covariant_matrix
     
     return phi_1_1cd1, phi_1_1cd2, phi_1_2cd1, phi_1_2cd2, phi_2_1cd1, phi_2_1cd2, phi_2_2cd1, phi_2_2cd2
 
-def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, i: int, i_debug:int, nonlinear_strain=True): 
+def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, i: int, i_debug: int, nonlinear_strain=True): 
     
     deformations_local = torch.einsum('ijkl,ijl->ijk', ref_geometry.cartesian_coord_2_covariant, deformations)
     u_1, u_2, u_3 = deformations_local[...,0], deformations_local[...,1], deformations_local[...,2]

@@ -14,7 +14,7 @@ class Material():
         raise NotImplementedError
         
 class LinearMaterial(Material):
-    def __init__(self, args, ref_geometry):
+    def __init__(self, args, ref_geometry: ReferenceGeometry):
         super().__init__(args.mass_area_density, args.thickness, ref_geometry)
         self.poissons_ratio = args.poissons_ratio
         self.D = (args.youngs_modulus * args.thickness) / (1 - args.poissons_ratio ** 2)
@@ -74,7 +74,7 @@ class NonLinearMaterial(Material):
             eta_second_derivative += (self.mu[j][i] * (self.alpha[j][i] - 1) * (x + 1) ** (self.alpha[j][i] - 2))
         return eta_second_derivative
     
-    def strain_cutoff_extrapolation(self, E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i):        
+    def strain_cutoff_extrapolation(self, E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i):
         E11_valid = torch.logical_and(E11 > self.E_11_min, E11 < self.E_11_max)
         E12_valid = torch.logical_and(E12 > self.E_12_min, E12 < self.E_12_max)
         E22_valid = torch.logical_and(E22 > self.E_22_min, E22 < self.E_22_max)
