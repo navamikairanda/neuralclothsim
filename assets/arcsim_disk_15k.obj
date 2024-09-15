@@ -1,7 +1,5 @@
 # Blender 3.6.14
 # www.blender.org
-mtllib disk_15k_with_uv.mtl
-o disk_with_uv_15k
 v 0.146319 0.726617 -0.000000
 v 0.812117 -0.290801 0.000000
 v 0.986148 -0.101956 0.000000
