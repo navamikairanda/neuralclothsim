@@ -46,10 +46,10 @@ The codebase has the following structure:
 * Simulation configurations are defined in the `config/` directory. They include the scene description, such as reference geometry, boundary condition, external forces, optimisation configuration (e.g. learning rate), and testing configurations, such as sampling rate. 
 * Material configurations are defined in the `material/` directory. Material models (linear, nonlinear, StVK, Clyde model etc..) and their corresponding strain energy computations are defined in `material.py`.
 * The entry point for running the method is `run_neuralclothsim.py`, which includes training and testing scripts.
-* `modules.py` contains the implementation of the neural deformation field, and `boundary.py` contains the Dirichlet and periodic boundary constraints.
-* `energy.py` computes the loss, i.e. potential energies of the simulation system, and `strain.py` includes the calculation of stretching and bending strain. 
-* `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the thin shell (cloth) and the derived differential quantities.
 * `sampler.py` generates grid or mesh-based training samples on the cloth.
+* `reference_midsurface.py` and `reference_geometry.py` contain the implementation of the reference midsurface of the thin shell (cloth) and the derived differential quantities.
+* `modules.py` contains the implementation of the neural deformation field, and `boundary.py` contains the Dirichlet and periodic boundary constraints.
+* `energy.py` computes the loss, i.e. potential energies of the simulation system, and `strain.py` includes the calculation of stretching and bending strain.
 
 ### Running Code
 Check out `run_neuralclothsim.py` for reproducing simulations. It includes both training (solving physics to train NDF) and testing (extracting simulated meshes from the NDF) scripts. For training, simply use 
