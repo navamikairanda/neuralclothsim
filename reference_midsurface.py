@@ -33,7 +33,6 @@ class ReferenceMidSurface():
     def __init__(self, args, curvilinear_space: CurvilinearSpace):
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
-        self.temporal_coords = get_mgrid((args.test_n_temporal_samples,), stratified=False, dim=1)
         if self.reference_geometry_name == 'mesh':
             vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
@@ -43,7 +42,6 @@ class ReferenceMidSurface():
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations)
             reference_mlp_verts_pred = self(self.template_mesh.textures.verts_uvs_padded())
             self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)            
-            self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
             # for analytical surface, use equal number of samples along each curvilinear coordinate
             args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
@@ -55,7 +53,6 @@ class ReferenceMidSurface():
             faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
             texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
             self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
-            self.temporal_coords = self.temporal_coords.repeat_interleave(args.test_n_spatial_samples, 0)[None]
         if tb.writer:
             tb.writer.add_mesh('reference_state', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
         save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])

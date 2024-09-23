@@ -17,13 +17,13 @@ from boundary import Boundary
 from utils.file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
-def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, test_n_temporal_samples: int, meshes_dir: str, i: int):
+def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str, i: int):
     
-    test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded()[0].repeat(1, test_n_temporal_samples, 1), reference_midsurface.temporal_coords)
-    test_deformed_positions = reference_midsurface.template_mesh.verts_padded().repeat(1, test_n_temporal_samples, 1) + test_deformations
+    test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded())
+    test_deformed_positions = reference_midsurface.template_mesh.verts_padded() + test_deformations
     if tb.writer:
-        tb.writer.add_mesh('simulated_states', test_deformed_positions.view(test_n_temporal_samples, -1, 3), faces=reference_midsurface.template_mesh.textures.faces_uvs_padded().repeat(test_n_temporal_samples, 1, 1), global_step=i)
-    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, test_n_temporal_samples, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
+        tb.writer.add_mesh('simulated_states', test_deformed_positions, faces=reference_midsurface.template_mesh.textures.faces_uvs_padded(), global_step=i)
+    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
         
 def train():  
     args = get_config_parser().parse_args()
@@ -41,9 +41,9 @@ def train():
 
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
-    boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, args.trajectory, reference_midsurface.boundary_curvilinear_coords)
+    boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, reference_midsurface.boundary_curvilinear_coords)
     
-    ndf = Siren(boundary, in_features=4 if args.reference_geometry_name in ['cylinder', 'cone'] else 3).to(device)
+    ndf = Siren(boundary, in_features=3 if args.reference_geometry_name in ['cylinder', 'cone'] else 2).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
     if args.i_ckpt is not None:
@@ -64,27 +64,27 @@ def train():
     
     if args.test_only:
         logger.info(f'Evaluating NDF from checkpoint {ckpts[-1]}')
-        test(ndf, reference_midsurface, args.test_n_temporal_samples, meshes_dir, global_step)
+        test(ndf, reference_midsurface, meshes_dir, global_step)
         return
     
-    reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples, args.train_n_temporal_samples)
+    reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples)
     material = LinearMaterial(args, reference_geometry) if args.material_type == 'linear' else NonLinearMaterial(args, reference_geometry)
-    energy = Energy(reference_geometry, material, args.gravity_acceleration, args.trajectory, args.i_debug)
+    energy = Energy(reference_geometry, material, args.gravity_acceleration, args.i_debug)
     
     if args.reference_geometry_name == 'mesh':
-        sampler = MeshSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, reference_midsurface.template_mesh)
+        sampler = MeshSampler(args.train_n_spatial_samples, reference_midsurface.template_mesh)
     else:
-        sampler = GridSampler(args.train_n_spatial_samples, args.train_n_temporal_samples, curvilinear_space)
+        sampler = GridSampler(args.train_n_spatial_samples, curvilinear_space)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
     if tb.writer:
         tb.writer.add_text('args', str(args))
         
     for i in trange(global_step, args.n_iterations):
-        curvilinear_coords, temporal_coords = next(iter(dataloader))
+        curvilinear_coords = next(iter(dataloader))
         reference_geometry(curvilinear_coords, i==0)
-        deformations = ndf(reference_geometry.curvilinear_coords, temporal_coords)                    
-        mechanical_energy = energy(deformations, temporal_coords, i)
+        deformations = ndf(reference_geometry.curvilinear_coords)                    
+        mechanical_energy = energy(deformations, i)
         loss = mechanical_energy.mean()
         
         optimizer.zero_grad()
@@ -111,7 +111,7 @@ def train():
             }, os.path.join(weights_dir, f'{i:06d}.tar'))
             
         if not i % args.i_test:            
-            test(ndf, reference_midsurface, args.test_n_temporal_samples, meshes_dir, i)
+            test(ndf, reference_midsurface, meshes_dir, i)
     tb.writer.flush()
     tb.writer.close()
 

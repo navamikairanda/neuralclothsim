@@ -15,7 +15,6 @@ def get_config_parser():
     parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
     parser.add_argument('--boundary_condition_name', type=str, default='top_left_fixed', help='name of the spatio-temporal boundary condition; can be one of top_left_fixed, top_left_top_right_moved, adjacent_edges_fixed, nonboundary_handle_fixed, nonboundary_edge_fixed for reference geometry as a rectangle, and top_bottom_rims_compression, top_bottom_rims_torsion for cylinder, top_rim_fixed, top_rim_torsion for cone, and mesh_vertices for mesh')
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
-    parser.add_argument('--trajectory', action='store_true', help='whether to simulate the trajectory from the reference state to the quasi-static state; otherwise, the quasistatic solutions are computed at all temporal samples')
     
     # additional parameters if the reference geometry is a mesh
     parser.add_argument('--reference_geometry_source', type=str, default='assets/textured_uniform_1_020.obj', help='source file for reference geometry')
@@ -59,7 +58,6 @@ def get_config_parser():
     
     # training options
     parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
-    parser.add_argument('--train_n_temporal_samples', type=int, default=10, help='N_t, number of temporal samples used for training')
     parser.add_argument('--lrate', type=float, default=5e-6, help='learning rate')
     parser.add_argument('--decay_lrate', action='store_true', default=True, help='whether to decay learning rate')
     parser.add_argument('--lrate_decay_steps', type=int, default=5000, help='learning rate decay steps')
@@ -83,6 +81,5 @@ def get_config_parser():
     
     # testing options
     parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
-    parser.add_argument('--test_n_temporal_samples', type=int, default=2, help='N_t, number of temporal samples used for evaluation')
                             
     return parser

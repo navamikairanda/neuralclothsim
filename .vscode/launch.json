@@ -16,7 +16,6 @@
                 "config/napkin_fixed_handle.ini", 
                 "-n", 
                 "napkin_fixed_handle_debug",
-                "--trajectory"
                 //"-m",
                 //"material/linear_1.ini"
             ]
@@ -33,7 +32,6 @@
                 "config/napkin_moving_handles.ini",
                 "-n", 
                 "napkin_moving_handles_debug", 
-                "--trajectory",
                 "-m",
                 "material/linear_1.ini"
                 //"material/canvas.ini"

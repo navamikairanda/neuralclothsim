@@ -9,25 +9,20 @@ from reference_geometry import ReferenceGeometry
 from strain import compute_strain                
 
 class Energy:
-    def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, trajectory: bool, i_debug: int):
+    def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, i_debug: int):
         self.ref_geometry = ref_geometry
         self.material = material
         external_load = torch.tensor(gravity_acceleration, device=device) * material.mass_area_density
-        self.external_load = external_load.expand(1, ref_geometry.n_temporal_samples * ref_geometry.n_spatial_samples, 3)
-        self.trajectory = trajectory
+        self.external_load = external_load.expand(1, ref_geometry.n_spatial_samples, 3)
         self.i_debug = i_debug
         
-    def __call__(self, deformations: torch.Tensor, temporal_coords: torch.Tensor, i: int) -> torch.Tensor:   
+    def __call__(self, deformations: torch.Tensor, i: int) -> torch.Tensor:   
         strain, normal_difference = compute_strain(deformations, self.ref_geometry, i, self.i_debug)
         
         if isinstance(self.material, LinearMaterial):        
             hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
             external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
             mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid)
-            if self.trajectory:
-                velocity = jacobian(deformations, temporal_coords)[0]
-                kinetic_energy_mid = 0.5 * self.material.mass_area_density * torch.einsum('ijkl,ijkl->ij', velocity, velocity)
-                mechanical_energy += kinetic_energy_mid
             mechanical_energy = mechanical_energy * torch.sqrt(self.ref_geometry.a)
             
         elif isinstance(self.material, NonLinearMaterial):
@@ -42,10 +37,6 @@ class Energy:
             external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
             external_energy_bottom = torch.einsum('ijk,ijk->ij', self.external_load, deformations + 0.5 * self.material.thickness * normal_difference)
             mechanical_energy = (hyperelastic_strain_energy_top - external_energy_top) + 4 * (hyperelastic_strain_energy_mid - external_energy_mid) + (external_energy_bottom - hyperelastic_strain_energy_bottom)
-            if self.trajectory:
-                velocity = jacobian(deformations, temporal_coords)[0]
-                kinetic_energy = 0.5 * self.material.mass_area_density * torch.einsum('ijkl,ijkl->ij', velocity, velocity)        
-                mechanical_energy += kinetic_energy
             mechanical_energy = mechanical_energy * torch.sqrt(self.ref_geometry.a) / 6.
         if not i % self.i_debug and tb.writer:
             tb.writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 

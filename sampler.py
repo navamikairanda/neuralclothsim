@@ -143,26 +143,15 @@ class CurvilinearSpace(NamedTuple):
     xi__2_max: float
     
 class Sampler(Dataset):
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int):
+    def __init__(self, n_spatial_samples: int):
         self.n_spatial_samples = n_spatial_samples
-        self.n_temporal_samples = n_temporal_samples
-        
-        self.cell_temporal_coords = get_mgrid((self.n_temporal_samples,), stratified=True, dim=1)
     
     def __len__(self):
         return 1
-    
-    def get_temporal_coords(self):
-        temporal_coords = self.cell_temporal_coords.clone()
-        t_rand_temporal = torch.rand([self.n_temporal_samples, 1], device=device) / self.n_temporal_samples
-        temporal_coords += t_rand_temporal
-        temporal_coords.requires_grad_(True)    
-        temporal_coords = temporal_coords.repeat_interleave(self.n_spatial_samples, 0)  
-        return temporal_coords
                            
 class GridSampler(Sampler):
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, curvilinear_space: CurvilinearSpace):
-        super().__init__(n_spatial_samples, n_temporal_samples)
+    def __init__(self, n_spatial_samples: int, curvilinear_space: CurvilinearSpace):
+        super().__init__(n_spatial_samples)
                 
         self.curvilinear_space = curvilinear_space
         self.spatial_sidelen = math.isqrt(n_spatial_samples)
@@ -181,11 +170,11 @@ class GridSampler(Sampler):
         curvilinear_coords[...,1] *= self.curvilinear_space.xi__2_max
         curvilinear_coords.requires_grad_(True)
       
-        return curvilinear_coords, self.get_temporal_coords()            
+        return curvilinear_coords
 
 class MeshSampler(Sampler):
-    def __init__(self, n_spatial_samples: int, n_temporal_samples: int, reference_mesh: Meshes):
-        super().__init__(n_spatial_samples, n_temporal_samples)
+    def __init__(self, n_spatial_samples: int, reference_mesh: Meshes):
+        super().__init__(n_spatial_samples)
         self.reference_mesh = reference_mesh
             
     def __getitem__(self, idx):    
@@ -194,4 +183,4 @@ class MeshSampler(Sampler):
         curvilinear_coords = sample_points_from_meshes(self.reference_mesh, self.n_spatial_samples)[1][0]            
         curvilinear_coords.requires_grad_(True)
                     
-        return curvilinear_coords, self.get_temporal_coords()
+        return curvilinear_coords
