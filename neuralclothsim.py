@@ -10,8 +10,6 @@ import utils.tb as tb
 import torch.nn as nn
 import numpy as np
 import math
-import torch
-import numpy as np
 from torch.utils.data import Dataset
 
 # Parts of the code (sample_points_from_meshes) borrowed from Meta Platforms, Inc.
@@ -20,6 +18,8 @@ from pytorch3d.structures import Meshes
 from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals
 from pytorch3d.ops.packed_to_padded import packed_to_padded
 from typing import NamedTuple
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def sample_points_from_meshes(
     meshes,
@@ -194,8 +194,6 @@ class MeshSampler(Sampler):
         curvilinear_coords.requires_grad_(True)
                     
         return curvilinear_coords
-
-
     
 class Boundary:
     def __init__(self, reference_geometry_name: str, boundary_condition_name: str, curvilinear_space: CurvilinearSpace, boundary_curvilinear_coords: torch.Tensor = None):
@@ -337,9 +335,7 @@ class GELUReference(nn.Module):
         output = self.net(curvilinear_coords)
         return output
 
-import torch
 from torch.autograd import grad
-from typing import Tuple
 
 def jacobian(y: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, int]:
     ''' jacobian of y wrt x '''
@@ -354,15 +350,9 @@ def jacobian(y: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, int]:
     if torch.any(torch.isnan(jac)):
         status = -1
     return jac, status
-import os
-import math
-import torch
-import torch.nn as nn
-import numpy as np
-from tqdm import trange
+
 from pytorch3d.io import save_obj, load_obj
 
-from utils.config_parser import device
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
 
@@ -445,7 +435,6 @@ class ReferenceMidSurface():
                 raise ValueError(f'Unknown reference_geometry_name {self.reference_geometry_name}')
         return midsurface_positions
     
-import torch
 from torch.nn.functional import normalize
 
 from utils.plot import get_plot_grid_tensor
@@ -548,9 +537,6 @@ class ReferenceGeometry():
         g__2__2 = torch.einsum('ijk,ijl->ijkl', g__2, g__2)
         return g__1__1, g__1__2, g__2__1, g__2__2    
 
-import torch
-from typing import NamedTuple
-
 class Strain(NamedTuple):
     epsilon_1_1: torch.Tensor
     epsilon_1_2: torch.Tensor
@@ -646,9 +632,6 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         tb.writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_2_2[0,-ref_geometry.n_spatial_samples:]), i)
     
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2), normal_difference
-
-import torch
-from typing import NamedTuple
     
 class Material():
     def __init__(self, mass_area_density: float, thickness: float, ref_geometry: ReferenceGeometry):
@@ -774,7 +757,6 @@ class NonLinearMaterial(Material):
         
         return hyperelastic_strain_energy
 
-import math
 import matplotlib.pyplot as plt
 
 def get_plot_single_tensor(tensor):
@@ -784,9 +766,6 @@ def get_plot_single_tensor(tensor):
     pcolormesh = ax.pcolormesh(tensor.view(spatial_sidelen, spatial_sidelen).detach().cpu())
     fig.colorbar(pcolormesh, ax=ax)
     return fig
-
-import torch
-from torch.nn.functional import normalize
 
 class Energy:
     def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, i_debug: int):
@@ -824,11 +803,7 @@ class Energy:
                 tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,-self.ref_geometry.n_spatial_samples:]), i)
         return mechanical_energy
 
-import os
 import imageio
-import torch
-from pytorch3d.io import save_obj
-from utils.config_parser import device 
 
 def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None, tex_image_file=None):
     meshes_dir = os.path.join(meshes_dir, f'{i}')
@@ -840,7 +815,6 @@ def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None, tex_image_file=
     save_obj(os.path.join(meshes_dir, 'simulated.obj'), positions[0], faces, verts_uvs=verts_uvs, faces_uvs=faces, texture_map=texture_map)
 
 import sys
-import os
 import logging
 
 def get_logger(log_dir, expt_name):
@@ -858,11 +832,7 @@ def get_logger(log_dir, expt_name):
     logger.addHandler(errHandler)
     return logger
 
-import math
 import configargparse
-import torch
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def get_config_parser():
     parser = configargparse.ArgumentParser()
@@ -946,9 +916,6 @@ def get_config_parser():
     parser.add_argument('--test_n_temporal_samples', type=int, default=2, help='N_t, number of temporal samples used for evaluation')
                             
     return parser
-        
-import math
-import torch
                         
 def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str, i: int):
     
