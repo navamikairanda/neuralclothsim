@@ -5,74 +5,14 @@ from shutil import copyfile
 
 from torch.utils.data import DataLoader
 import utils.tb as tb
-from material import LinearMaterial, NonLinearMaterial
-from sampler import GridSampler, MeshSampler, CurvilinearSpace
-from reference_geometry import ReferenceGeometry
-from modules import Siren
-from energy import Energy
-from utils.logger import get_logger
-from utils.config_parser import get_config_parser, device
-from reference_midsurface import ReferenceMidSurface
-from boundary import Boundary
-from utils.file_io import save_meshes
 #torch.manual_seed(2) #Set seed for reproducible results
 
-import torch
 import torch.nn as nn
 import numpy as np
-from boundary import Boundary
-
-class SineLayer(nn.Module):      
-    def __init__(self, in_features: int, out_features: int, bias=True, is_first=False, omega_0=30.):
-        super().__init__()
-        self.omega_0 = omega_0
-        self.is_first = is_first        
-        self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features, bias=bias)        
-        self.init_weights()
-    
-    def init_weights(self):
-        with torch.no_grad():
-            if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features, 1 / self.in_features)      
-            else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0, np.sqrt(6 / self.in_features) / self.omega_0)
-        
-    def forward(self, input):
-        return torch.sin(self.omega_0 * self.linear(input))
-   
-class Siren(nn.Module):
-    def __init__(self, boundary: Boundary, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30.):
-        super().__init__()
-        self.boundary = boundary
-        self.net = []
-        self.net.append(SineLayer(in_features, hidden_features, is_first=True, omega_0=first_omega_0))
-
-        for i in range(hidden_layers):
-            self.net.append(SineLayer(hidden_features, hidden_features, is_first=False, omega_0=hidden_omega_0))
-
-        if outermost_linear:
-            final_linear = nn.Linear(hidden_features, out_features)            
-            with torch.no_grad():
-                final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0, np.sqrt(6 / hidden_features) / hidden_omega_0)
-            self.net.append(final_linear)
-        else:
-            self.net.append(SineLayer(hidden_features, out_features, is_first=False, omega_0=hidden_omega_0))    
-        self.net = nn.Sequential(*self.net)
-    
-    def forward(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:                
-
-        normalized_coords = self.boundary.periodic_condition_and_normalization(curvilinear_coords)        
-        deformations = self.net(normalized_coords)
-        deformations = self.boundary.dirichlet_condition(deformations, curvilinear_coords)
-
-        return deformations 
-
 import math
 import torch
 import numpy as np
 from torch.utils.data import Dataset
-from utils.config_parser import device
 
 # Parts of the code (sample_points_from_meshes) borrowed from Meta Platforms, Inc.
 from typing import Tuple, Union
@@ -255,6 +195,148 @@ class MeshSampler(Sampler):
                     
         return curvilinear_coords
 
+
+    
+class Boundary:
+    def __init__(self, reference_geometry_name: str, boundary_condition_name: str, curvilinear_space: CurvilinearSpace, boundary_curvilinear_coords: torch.Tensor = None):
+        self.reference_geometry_name = reference_geometry_name
+        self.boundary_condition_name = boundary_condition_name
+        self.curvilinear_space = curvilinear_space
+        self.boundary_curvilinear_coords = boundary_curvilinear_coords
+        self.boundary_support = 0.01
+
+    def periodic_condition_and_normalization(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
+        if self.reference_geometry_name in ['cylinder', 'cone']:
+            normalized_coords = torch.cat([(torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
+        else:
+            normalized_coords = torch.cat([curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
+        return normalized_coords
+    
+    def dirichlet_condition(self, deformations: torch.Tensor, curvilinear_coords: torch.Tensor) -> torch.Tensor:        
+        match self.boundary_condition_name:
+            case 'top_left_fixed':
+                top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
+                deformations = deformations * (1 - top_left_corner)
+            case 'top_left_top_right_moved':
+                top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__1_max) ** 2)/self.boundary_support)
+                top_right_corner = torch.exp(-((curvilinear_coords[...,0:1] - self.curvilinear_space.xi__1_max) ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)                
+                temporal_motion = 0.2 * torch.ones_like(curvilinear_coords[...,0:1])               
+                corner_displacement = torch.cat([temporal_motion, torch.zeros_like(temporal_motion), torch.zeros_like(temporal_motion)], dim=2)                    
+                deformations = deformations * (1 - top_left_corner) * (1 - top_right_corner) + corner_displacement * top_left_corner - corner_displacement * top_right_corner                                
+            case 'adjacent_edges_fixed':
+                left_edge = torch.exp(-(curvilinear_coords[...,0:1] ** 2)/self.boundary_support)
+                right_edge = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
+                deformations = deformations * (1 - left_edge) * (1 - right_edge)
+            case 'nonboundary_handle_fixed':
+                center_point = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.curvilinear_space.xi__1_max) ** 2 + (curvilinear_coords[...,1:2] - 0.7 * self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
+                deformations = deformations * (1 - center_point)
+            case 'nonboundary_edge_fixed':
+                center_edge = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.curvilinear_space.xi__1_max) ** 2)/self.boundary_support)
+                deformations = deformations * (1 - center_edge)
+            case 'top_bottom_rims_compression':                
+                bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
+                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
+                temporal_motion = 0.075 * torch.ones_like(curvilinear_coords[...,0:1])
+                rim_displacement = torch.cat([torch.zeros_like(temporal_motion), temporal_motion, torch.zeros_like(temporal_motion)], dim=2)
+                deformations = deformations * (1 - bottom_rim) * (1 - top_rim) - rim_displacement * top_rim + rim_displacement * bottom_rim
+            case 'top_bottom_rims_torsion':
+                self.boundary_support = 0.001
+                bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
+                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
+                R = 0.25
+                rotation = math.pi / 4 #3 * math.pi / 4
+                temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
+                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
+                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] - temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R * (torch.sin(curvilinear_coords[...,0:1] - temporal_motion) - torch.sin(curvilinear_coords[...,0:1])), ], dim=2)                
+                deformations = deformations * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim              
+            case 'top_rim_fixed':
+                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
+                deformations = deformations * (1 - top_rim)
+            case 'top_rim_torsion':
+                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
+                R_top = 0.2
+                rotation = math.pi / 2
+                temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
+                top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
+                deformations = deformations * (1 - top_rim) + top_rim_displacement * top_rim            
+            case 'mesh_vertices':
+                for i in range(self.boundary_curvilinear_coords.shape[0]):
+                    boundary_point = torch.exp(-((curvilinear_coords[...,0:1] - self.boundary_curvilinear_coords[i][0]) ** 2 + (curvilinear_coords[...,1:2] - self.boundary_curvilinear_coords[i][1]) ** 2)/self.boundary_support)
+                    deformations = deformations * (1 - boundary_point)
+                deformations = deformations
+            case _:
+                raise ValueError(f'Unknown boundary condition: {self.boundary_condition_name}')
+        return deformations
+
+class SineLayer(nn.Module):      
+    def __init__(self, in_features: int, out_features: int, bias=True, is_first=False, omega_0=30.):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first        
+        self.in_features = in_features
+        self.linear = nn.Linear(in_features, out_features, bias=bias)        
+        self.init_weights()
+    
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.in_features, 1 / self.in_features)      
+            else:
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0, np.sqrt(6 / self.in_features) / self.omega_0)
+        
+    def forward(self, input):
+        return torch.sin(self.omega_0 * self.linear(input))
+   
+class Siren(nn.Module):
+    def __init__(self, boundary: Boundary, in_features=3, hidden_features=512, hidden_layers=5, out_features=3, outermost_linear=True, first_omega_0=30., hidden_omega_0=30.):
+        super().__init__()
+        self.boundary = boundary
+        self.net = []
+        self.net.append(SineLayer(in_features, hidden_features, is_first=True, omega_0=first_omega_0))
+
+        for i in range(hidden_layers):
+            self.net.append(SineLayer(hidden_features, hidden_features, is_first=False, omega_0=hidden_omega_0))
+
+        if outermost_linear:
+            final_linear = nn.Linear(hidden_features, out_features)            
+            with torch.no_grad():
+                final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0, np.sqrt(6 / hidden_features) / hidden_omega_0)
+            self.net.append(final_linear)
+        else:
+            self.net.append(SineLayer(hidden_features, out_features, is_first=False, omega_0=hidden_omega_0))    
+        self.net = nn.Sequential(*self.net)
+    
+    def forward(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:                
+
+        normalized_coords = self.boundary.periodic_condition_and_normalization(curvilinear_coords)        
+        deformations = self.net(normalized_coords)
+        deformations = self.boundary.dirichlet_condition(deformations, curvilinear_coords)
+
+        return deformations 
+
+class GELUReference(nn.Module):
+    def __init__(self, in_features, hidden_features, hidden_layers, out_features):
+    
+        super().__init__()
+        self.net = []
+        self.net.append(nn.Linear(in_features, hidden_features))
+
+        for i in range(hidden_layers-1):
+            self.net.append(nn.Linear(hidden_features, hidden_features))
+            self.net.append(nn.GELU())
+        
+        self.net.append(nn.Linear(hidden_features, hidden_features))
+        self.net.append(nn.GELU())
+
+        final_linear = nn.Linear(hidden_features, out_features)
+            
+        self.net.append(final_linear)
+        self.net = nn.Sequential(*self.net)
+
+    def forward(self, curvilinear_coords):
+        output = self.net(curvilinear_coords)
+        return output
+
 import torch
 from torch.autograd import grad
 from typing import Tuple
@@ -280,10 +362,7 @@ import numpy as np
 from tqdm import trange
 from pytorch3d.io import save_obj, load_obj
 
-import utils.tb as tb
 from utils.config_parser import device
-from modules import GELUReference
-from sampler import get_mgrid, sample_points_from_meshes, CurvilinearSpace
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
 
@@ -369,10 +448,7 @@ class ReferenceMidSurface():
 import torch
 from torch.nn.functional import normalize
 
-import utils.tb as tb
-from utils.diff_operators import jacobian
 from utils.plot import get_plot_grid_tensor
-from reference_midsurface import ReferenceMidSurface
 
 class ReferenceGeometry(): 
     def __init__(self, reference_midsurface: ReferenceMidSurface, n_spatial_samples: int):
@@ -474,10 +550,6 @@ class ReferenceGeometry():
 
 import torch
 from typing import NamedTuple
-import utils.tb as tb
-from utils.diff_operators import jacobian
-from reference_geometry import ReferenceGeometry
-from utils.plot import get_plot_grid_tensor
 
 class Strain(NamedTuple):
     epsilon_1_1: torch.Tensor
@@ -577,9 +649,6 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
 
 import torch
 from typing import NamedTuple
-import utils.tb as tb
-from strain import Strain
-from reference_geometry import ReferenceGeometry
     
 class Material():
     def __init__(self, mass_area_density: float, thickness: float, ref_geometry: ReferenceGeometry):
@@ -705,15 +774,19 @@ class NonLinearMaterial(Material):
         
         return hyperelastic_strain_energy
 
+import math
+import matplotlib.pyplot as plt
+
+def get_plot_single_tensor(tensor):
+    fig = plt.figure()
+    ax = fig.gca()
+    spatial_sidelen = math.isqrt(tensor.shape[0])
+    pcolormesh = ax.pcolormesh(tensor.view(spatial_sidelen, spatial_sidelen).detach().cpu())
+    fig.colorbar(pcolormesh, ax=ax)
+    return fig
+
 import torch
 from torch.nn.functional import normalize
-import utils.tb as tb
-from utils.diff_operators import jacobian
-from utils.config_parser import device
-from material import Material, LinearMaterial, NonLinearMaterial, MaterialOrthotropy
-from utils.plot import get_plot_single_tensor
-from reference_geometry import ReferenceGeometry
-from strain import compute_strain                
 
 class Energy:
     def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, i_debug: int):
@@ -751,80 +824,131 @@ class Energy:
                 tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,-self.ref_geometry.n_spatial_samples:]), i)
         return mechanical_energy
 
+import os
+import imageio
+import torch
+from pytorch3d.io import save_obj
+from utils.config_parser import device 
+
+def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None, tex_image_file=None):
+    meshes_dir = os.path.join(meshes_dir, f'{i}')
+    os.makedirs(meshes_dir, exist_ok=True)
+    if tex_image_file is not None:
+        texture_map = torch.tensor(imageio.imread(tex_image_file)/255., dtype=torch.float, device=device)
+    else:
+        texture_map = None
+    save_obj(os.path.join(meshes_dir, 'simulated.obj'), positions[0], faces, verts_uvs=verts_uvs, faces_uvs=faces, texture_map=texture_map)
+
+import sys
+import os
+import logging
+
+def get_logger(log_dir, expt_name):
+    logger = logging.getLogger("NeuralClothSim")
+    logger.setLevel(logging.DEBUG)
+
+    stdoutHandler = logging.StreamHandler(stream=sys.stdout)    
+    errHandler = logging.FileHandler(os.path.join(log_dir, f'{expt_name}.log'))
+
+    fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(filename)s:%(lineno)s >>> %(message)s")
+    stdoutHandler.setFormatter(fmt)
+    errHandler.setFormatter(fmt)
+
+    logger.addHandler(stdoutHandler)
+    logger.addHandler(errHandler)
+    return logger
+
+import math
+import configargparse
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def get_config_parser():
+    parser = configargparse.ArgumentParser()
+    parser.add('-c', '--config_filepath', required=True, is_config_file=True, help='config file path')
+    parser.add_argument('-n', '--expt_name', type=str, required=True, help='experiment name; this will also be the name of subdirectory in logging_dir')
+
+    # simulation parameters
+    parser.add_argument('--reference_geometry_name', type=str, default='rectangle_xy', help='name of the reference geometry; can be rectangle_xy, rectangle_xz, cylinder, cone or mesh')
+    parser.add_argument('--xi__1_max', type=float, default=2 * math.pi, help='max value for xi__1; 2 * pi for cylinder or cone, and Lx for rectangle. min value for xi__1 is assumed to be 0')
+    parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
+    parser.add_argument('--boundary_condition_name', type=str, default='top_left_fixed', help='name of the spatio-temporal boundary condition; can be one of top_left_fixed, top_left_top_right_moved, adjacent_edges_fixed, nonboundary_handle_fixed, nonboundary_edge_fixed for reference geometry as a rectangle, and top_bottom_rims_compression, top_bottom_rims_torsion for cylinder, top_rim_fixed, top_rim_torsion for cone, and mesh_vertices for mesh')
+    parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
+    parser.add_argument('--trajectory', action='store_true', help='whether to simulate the trajectory from the reference state to the quasi-static state; otherwise, the quasistatic solutions are computed at all temporal samples')
+    
+    # additional parameters if the reference geometry is a mesh
+    parser.add_argument('--reference_geometry_source', type=str, default='assets/textured_uniform_1_020.obj', help='source file for reference geometry')
+    parser.add_argument('--reference_mlp_n_iterations', type=int, default=3000, help='number of iterations for fitting the reference geometry MLP')
+    parser.add_argument('--reference_mlp_lrate', type=float, default=5e-6, help='learning rate for the reference geometry MLP')
+    parser.add_argument('--reference_boundary_vertices', type=int, nargs='+', help='vertices for boundary condition on the reference geometry')
+    
+    # material parameters
+    parser.add('-m', '--material_filepath', is_config_file=True, default='material/linear_1.ini', help='name of the material')
+    parser.add_argument('--material_type', type=str, help='type of material; can be linear (isotropic) or nonlinear (orthotropic Clyde model)')
+    parser.add_argument('--StVK', action='store_true', help='whether to use the St.Venant-Kirchhoff simplification of the Clyde material model')
+    
+    parser.add_argument('--mass_area_density', type=float, default=0.144, help='mass area density in kg/m^2 ')
+    parser.add_argument('--thickness', type=float, default=0.0012, help='thickness in meters')
+    
+    # material parameters for a linear material
+    parser.add_argument('--youngs_modulus', type=float, default=5000, help='Young\'s modulus')
+    parser.add_argument('--poissons_ratio', type=float, default=0.25, help='Poisson\'s ratio')
+
+    # material parameters for a nonlinear material [Clyde et al., 2017]
+    parser.add_argument('--a11', type=float, help='a11')
+    parser.add_argument('--a12', type=float, help='a12')
+    parser.add_argument('--a22', type=float, help='a22')
+    parser.add_argument('--G12', type=float, help='G12')
+        
+    parser.add_argument('--d', type=int, nargs='+', help='degree')
+    parser.add_argument('--mu1', type=float, nargs='+', help='mu1')
+    parser.add_argument('--mu2', type=float, nargs='+', help='mu2')
+    parser.add_argument('--mu3', type=float, nargs='+', help='mu3')
+    parser.add_argument('--mu4', type=float, nargs='+', help='mu4')
+    parser.add_argument('--alpha1', type=float, nargs='+', help='alpha1')
+    parser.add_argument('--alpha2', type=float, nargs='+', help='alpha2')
+    parser.add_argument('--alpha3', type=float, nargs='+', help='alpha3')
+    parser.add_argument('--alpha4', type=float, nargs='+', help='alpha4')
+    
+    parser.add_argument('--E_11_min', type=float, help='E_11_min')
+    parser.add_argument('--E_11_max', type=float, help='E_11_max')
+    parser.add_argument('--E_22_min', type=float, help='E_22_min')
+    parser.add_argument('--E_22_max', type=float, help='E_22_max')
+    parser.add_argument('--E_12_max', type=float, help='E_12_max')
+    
+    # training options
+    parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
+    parser.add_argument('--train_n_temporal_samples', type=int, default=10, help='N_t, number of temporal samples used for training')
+    parser.add_argument('--lrate', type=float, default=5e-6, help='learning rate')
+    parser.add_argument('--decay_lrate', action='store_true', default=True, help='whether to decay learning rate')
+    parser.add_argument('--lrate_decay_steps', type=int, default=5000, help='learning rate decay steps')
+    parser.add_argument('--lrate_decay_rate', type=float, default=0.1, help='learning rate decay rate')    
+    parser.add_argument('--n_iterations', type=int, default=5001, help='total number of training iterations')
+    
+    # logging/saving options
+    parser.add_argument('--logging_dir', type=str, default='logs', help='root directory for logging')
+    parser.add_argument("--i_weights", type=int, default=400, help='frequency of saving NDF weights as checkpoints')
+    parser.add_argument("--i_summary", type=int, default=100, help='frequency of logging losses')
+    parser.add_argument("--i_test", type=int, default=100, help='frequency of evaluating NDF and saving simulated meshes during training')
+    
+    # debug options
+    parser.add_argument('--debug', action='store_true', default=True, help='whether to run in debug mode; this will log the reference geometric quantities (e.g. metric and curvature tensor), the strains, and the simulated states to TensorBoard')
+    parser.add_argument('--i_debug', type=int, default=200, help='frequency of Tensordboard logging')
+    
+    # reload options
+    parser.add_argument('--no_reload', action='store_true', help='do not resume training from checkpoint, rather train from scratch')
+    parser.add_argument("--i_ckpt", type=int, help='weight checkpoint to reload for resuming training or performing evaluation; if None, the latest checkpoint is used')
+    parser.add_argument('--test_only', action='store_true', help='evaluate NDF from i_ckpt and save simulated meshes; do not resume training')
+    
+    # testing options
+    parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
+    parser.add_argument('--test_n_temporal_samples', type=int, default=2, help='N_t, number of temporal samples used for evaluation')
+                            
+    return parser
+        
 import math
 import torch
-from sampler import CurvilinearSpace
-
-class Boundary:
-    def __init__(self, reference_geometry_name: str, boundary_condition_name: str, curvilinear_space: CurvilinearSpace, boundary_curvilinear_coords: torch.Tensor = None):
-        self.reference_geometry_name = reference_geometry_name
-        self.boundary_condition_name = boundary_condition_name
-        self.curvilinear_space = curvilinear_space
-        self.boundary_curvilinear_coords = boundary_curvilinear_coords
-        self.boundary_support = 0.01
-
-    def periodic_condition_and_normalization(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
-        if self.reference_geometry_name in ['cylinder', 'cone']:
-            normalized_coords = torch.cat([(torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
-        else:
-            normalized_coords = torch.cat([curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
-        return normalized_coords
-    
-    def dirichlet_condition(self, deformations: torch.Tensor, curvilinear_coords: torch.Tensor) -> torch.Tensor:        
-        match self.boundary_condition_name:
-            case 'top_left_fixed':
-                top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - top_left_corner)
-            case 'top_left_top_right_moved':
-                top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__1_max) ** 2)/self.boundary_support)
-                top_right_corner = torch.exp(-((curvilinear_coords[...,0:1] - self.curvilinear_space.xi__1_max) ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)                
-                temporal_motion = 0.2 * torch.ones_like(curvilinear_coords[...,0:1])               
-                corner_displacement = torch.cat([temporal_motion, torch.zeros_like(temporal_motion), torch.zeros_like(temporal_motion)], dim=2)                    
-                deformations = deformations * (1 - top_left_corner) * (1 - top_right_corner) + corner_displacement * top_left_corner - corner_displacement * top_right_corner                                
-            case 'adjacent_edges_fixed':
-                left_edge = torch.exp(-(curvilinear_coords[...,0:1] ** 2)/self.boundary_support)
-                right_edge = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
-                deformations = deformations * (1 - left_edge) * (1 - right_edge)
-            case 'nonboundary_handle_fixed':
-                center_point = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.curvilinear_space.xi__1_max) ** 2 + (curvilinear_coords[...,1:2] - 0.7 * self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - center_point)
-            case 'nonboundary_edge_fixed':
-                center_edge = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.curvilinear_space.xi__1_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - center_edge)
-            case 'top_bottom_rims_compression':                
-                bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
-                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                temporal_motion = 0.075 * torch.ones_like(curvilinear_coords[...,0:1])
-                rim_displacement = torch.cat([torch.zeros_like(temporal_motion), temporal_motion, torch.zeros_like(temporal_motion)], dim=2)
-                deformations = deformations * (1 - bottom_rim) * (1 - top_rim) - rim_displacement * top_rim + rim_displacement * bottom_rim
-            case 'top_bottom_rims_torsion':
-                self.boundary_support = 0.001
-                bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
-                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                R = 0.25
-                rotation = math.pi / 4 #3 * math.pi / 4
-                temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
-                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
-                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] - temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R * (torch.sin(curvilinear_coords[...,0:1] - temporal_motion) - torch.sin(curvilinear_coords[...,0:1])), ], dim=2)                
-                deformations = deformations * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim              
-            case 'top_rim_fixed':
-                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - top_rim)
-            case 'top_rim_torsion':
-                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                R_top = 0.2
-                rotation = math.pi / 2
-                temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
-                top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
-                deformations = deformations * (1 - top_rim) + top_rim_displacement * top_rim            
-            case 'mesh_vertices':
-                for i in range(self.boundary_curvilinear_coords.shape[0]):
-                    boundary_point = torch.exp(-((curvilinear_coords[...,0:1] - self.boundary_curvilinear_coords[i][0]) ** 2 + (curvilinear_coords[...,1:2] - self.boundary_curvilinear_coords[i][1]) ** 2)/self.boundary_support)
-                    deformations = deformations * (1 - boundary_point)
-                deformations = deformations
-            case _:
-                raise ValueError(f'Unknown boundary condition: {self.boundary_condition_name}')
-        return deformations
                         
 def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str, i: int):
     
