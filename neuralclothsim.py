@@ -3,19 +3,14 @@ import os
 from tqdm import trange
 from shutil import copyfile
 
-from torch.utils.data import DataLoader
 import utils.tb as tb
-#torch.manual_seed(2) #Set seed for reproducible results
 
 import torch.nn as nn
 import numpy as np
 import math
-from torch.utils.data import Dataset
-
-# Parts of the code (sample_points_from_meshes) borrowed from Meta Platforms, Inc.
-from typing import Tuple, Union
+from torch.utils.data import Dataset, DataLoader
+from typing import Tuple, Union, NamedTuple
 from pytorch3d.structures import Meshes
-from typing import NamedTuple
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -42,22 +37,18 @@ class CurvilinearSpace(NamedTuple):
     xi__1_max: float
     xi__2_max: float
     
-class Sampler(Dataset):
-    def __init__(self, n_spatial_samples: int):
-        self.n_spatial_samples = n_spatial_samples
-    
-    def __len__(self):
-        return 1
-                           
-class GridSampler(Sampler):
+class GridSampler(Dataset):
     def __init__(self, n_spatial_samples: int, curvilinear_space: CurvilinearSpace):
-        super().__init__(n_spatial_samples)
+        self.n_spatial_samples = n_spatial_samples
                 
         self.curvilinear_space = curvilinear_space
         self.spatial_sidelen = math.isqrt(n_spatial_samples)
         
         self.cell_curvilinear_coords = get_mgrid((self.spatial_sidelen, self.spatial_sidelen), stratified=True, dim=2)            
 
+    def __len__(self):
+        return 1
+    
     def __getitem__(self, idx):    
         if idx > 0: raise IndexError
          
@@ -73,11 +64,10 @@ class GridSampler(Sampler):
         return curvilinear_coords
     
 class Boundary:
-    def __init__(self, reference_geometry_name: str, boundary_condition_name: str, curvilinear_space: CurvilinearSpace, boundary_curvilinear_coords: torch.Tensor = None):
+    def __init__(self, reference_geometry_name: str, boundary_condition_name: str, curvilinear_space: CurvilinearSpace):
         self.reference_geometry_name = reference_geometry_name
         self.boundary_condition_name = boundary_condition_name
         self.curvilinear_space = curvilinear_space
-        self.boundary_curvilinear_coords = boundary_curvilinear_coords
         self.boundary_support = 0.01
 
     def periodic_condition_and_normalization(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
@@ -200,8 +190,7 @@ def jacobian(y: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, int]:
         status = -1
     return jac, status
 
-from pytorch3d.io import save_obj, load_obj
-
+from pytorch3d.io import save_obj
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer.mesh.textures import TexturesUV
 
@@ -224,9 +213,6 @@ def generate_mesh_topology(spatial_sidelen):
 class ReferenceMidSurface():
     def __init__(self, args, curvilinear_space: CurvilinearSpace):
         self.reference_geometry_name = args.reference_geometry_name
-        self.boundary_curvilinear_coords = None
-        # for analytical surface, use equal number of samples along each curvilinear coordinate
-        args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
         test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
         curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
         curvilinear_coords[...,0] *= curvilinear_space.xi__1_max
@@ -235,8 +221,6 @@ class ReferenceMidSurface():
         faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
         texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
         self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
-
-        save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])
         
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 
@@ -258,7 +242,6 @@ class ReferenceMidSurface():
         return midsurface_positions
     
 from torch.nn.functional import normalize
-
 from utils.plot import get_plot_grid_tensor
 
 class ReferenceGeometry(): 
@@ -446,18 +429,10 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         tb.writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_2_2[0,-ref_geometry.n_spatial_samples:]), i)
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2)
     
-class Material():
-    def __init__(self, mass_area_density: float, thickness: float, ref_geometry: ReferenceGeometry):
-        self.thickness = thickness
-        self.mass_area_density = mass_area_density
-        self.ref_geometry = ref_geometry
-    
-    def compute_internal_energy(self, strain: Strain) -> torch.Tensor:
-        raise NotImplementedError
-        
-class LinearMaterial(Material):
+class LinearMaterial():
     def __init__(self, args, ref_geometry: ReferenceGeometry):
-        super().__init__(args.mass_area_density, args.thickness, ref_geometry)
+        self.mass_area_density = args.mass_area_density
+        self.ref_geometry = ref_geometry
         self.poissons_ratio = args.poissons_ratio
         self.D = (args.youngs_modulus * args.thickness) / (1 - args.poissons_ratio ** 2)
         self.B = (args.thickness ** 2) * self.D / 12 
@@ -476,7 +451,6 @@ class LinearMaterial(Material):
         m__2__2 = H__1122 * strain.kappa_1_1 + 2 * H__1222 * strain.kappa_1_2 + H__2222 * strain.kappa_2_2
         
         hyperelastic_strain_energy = 0.5 * (self.D * (strain.epsilon_1_1 * n__1__1 + strain.epsilon_1_2 * n__1__2 + strain.epsilon_1_2 * n__2__1 + strain.epsilon_2_2 * n__2__2) + self.B * (strain.kappa_1_1 * m__1__1 + strain.kappa_1_2 * m__1__2 + strain.kappa_1_2 * m__2__1 + strain.kappa_2_2 * m__2__2))
-        
         return hyperelastic_strain_energy
 
 class MaterialOrthotropy(NamedTuple):
@@ -484,7 +458,7 @@ class MaterialOrthotropy(NamedTuple):
     d_2: torch.Tensor
 
 class Energy:
-    def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, i_debug: int):
+    def __init__(self, ref_geometry: ReferenceGeometry, material: LinearMaterial, gravity_acceleration: list, i_debug: int):
         self.ref_geometry = ref_geometry
         self.material = material
         external_load = torch.tensor(gravity_acceleration, device=device) * material.mass_area_density
@@ -512,24 +486,6 @@ def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None, tex_image_file=
         texture_map = None
     save_obj(os.path.join(meshes_dir, 'simulated.obj'), positions[0], faces, verts_uvs=verts_uvs, faces_uvs=faces, texture_map=texture_map)
 
-import sys
-import logging
-
-def get_logger(log_dir, expt_name):
-    logger = logging.getLogger("NeuralClothSim")
-    logger.setLevel(logging.DEBUG)
-
-    stdoutHandler = logging.StreamHandler(stream=sys.stdout)    
-    errHandler = logging.FileHandler(os.path.join(log_dir, f'{expt_name}.log'))
-
-    fmt = logging.Formatter("%(asctime)s | %(levelname)s | %(filename)s:%(lineno)s >>> %(message)s")
-    stdoutHandler.setFormatter(fmt)
-    errHandler.setFormatter(fmt)
-
-    logger.addHandler(stdoutHandler)
-    logger.addHandler(errHandler)
-    return logger
-
 import configargparse
 
 def get_config_parser():
@@ -543,13 +499,6 @@ def get_config_parser():
     parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
     parser.add_argument('--boundary_condition_name', type=str, default='top_left_fixed', help='name of the spatio-temporal boundary condition; can be one of top_left_fixed, top_left_top_right_moved, adjacent_edges_fixed, nonboundary_handle_fixed, nonboundary_edge_fixed for reference geometry as a rectangle, and top_bottom_rims_compression, top_bottom_rims_torsion for cylinder, top_rim_fixed, top_rim_torsion for cone, and mesh_vertices for mesh')
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
-    parser.add_argument('--trajectory', action='store_true', help='whether to simulate the trajectory from the reference state to the quasi-static state; otherwise, the quasistatic solutions are computed at all temporal samples')
-    
-    # additional parameters if the reference geometry is a mesh
-    parser.add_argument('--reference_geometry_source', type=str, default='assets/textured_uniform_1_020.obj', help='source file for reference geometry')
-    parser.add_argument('--reference_mlp_n_iterations', type=int, default=3000, help='number of iterations for fitting the reference geometry MLP')
-    parser.add_argument('--reference_mlp_lrate', type=float, default=5e-6, help='learning rate for the reference geometry MLP')
-    parser.add_argument('--reference_boundary_vertices', type=int, nargs='+', help='vertices for boundary condition on the reference geometry')
     
     # material parameters
     parser.add('-m', '--material_filepath', is_config_file=True, default='material/linear_1.ini', help='name of the material')
@@ -562,28 +511,6 @@ def get_config_parser():
     # material parameters for a linear material
     parser.add_argument('--youngs_modulus', type=float, default=5000, help='Young\'s modulus')
     parser.add_argument('--poissons_ratio', type=float, default=0.25, help='Poisson\'s ratio')
-
-    # material parameters for a nonlinear material [Clyde et al., 2017]
-    parser.add_argument('--a11', type=float, help='a11')
-    parser.add_argument('--a12', type=float, help='a12')
-    parser.add_argument('--a22', type=float, help='a22')
-    parser.add_argument('--G12', type=float, help='G12')
-        
-    parser.add_argument('--d', type=int, nargs='+', help='degree')
-    parser.add_argument('--mu1', type=float, nargs='+', help='mu1')
-    parser.add_argument('--mu2', type=float, nargs='+', help='mu2')
-    parser.add_argument('--mu3', type=float, nargs='+', help='mu3')
-    parser.add_argument('--mu4', type=float, nargs='+', help='mu4')
-    parser.add_argument('--alpha1', type=float, nargs='+', help='alpha1')
-    parser.add_argument('--alpha2', type=float, nargs='+', help='alpha2')
-    parser.add_argument('--alpha3', type=float, nargs='+', help='alpha3')
-    parser.add_argument('--alpha4', type=float, nargs='+', help='alpha4')
-    
-    parser.add_argument('--E_11_min', type=float, help='E_11_min')
-    parser.add_argument('--E_11_max', type=float, help='E_11_max')
-    parser.add_argument('--E_22_min', type=float, help='E_22_min')
-    parser.add_argument('--E_22_max', type=float, help='E_22_max')
-    parser.add_argument('--E_12_max', type=float, help='E_12_max')
     
     # training options
     parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
@@ -596,7 +523,6 @@ def get_config_parser():
     
     # logging/saving options
     parser.add_argument('--logging_dir', type=str, default='logs', help='root directory for logging')
-    parser.add_argument("--i_weights", type=int, default=400, help='frequency of saving NDF weights as checkpoints')
     parser.add_argument("--i_summary", type=int, default=100, help='frequency of logging losses')
     parser.add_argument("--i_test", type=int, default=100, help='frequency of evaluating NDF and saving simulated meshes during training')
     
@@ -627,43 +553,22 @@ def train():
     args = get_config_parser().parse_args()
     log_dir = os.path.join(args.logging_dir, args.expt_name)
     meshes_dir = os.path.join(log_dir, 'meshes')   
-    weights_dir = os.path.join(log_dir, 'weights')
         
-    for dir in [log_dir, weights_dir]:
+    for dir in [log_dir]:
         os.makedirs(dir, exist_ok=True)
             
-    logger = get_logger(log_dir, args.expt_name)
-    logger.info(args)
     tb.set_tensorboard_writer(log_dir, args.debug)
     copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
 
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
-    boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space, reference_midsurface.boundary_curvilinear_coords)
+    boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space)
     
     ndf = Siren(boundary, in_features=3 if args.reference_geometry_name in ['cylinder', 'cone'] else 2).to(device)
     optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
     
-    if args.i_ckpt is not None:
-        ckpts = [os.path.join(weights_dir, f'{args.i_ckpt:06d}.tar')]
-    else:
-        ckpts = [os.path.join(weights_dir, f) for f in sorted(os.listdir(weights_dir)) if '0.tar' in f]
-                
-    logger.info(f'Found ckpts: {ckpts}')
-    if len(ckpts) > 0 and not args.no_reload:
-        logger.info(f'Resuming experiment {args.expt_name} from checkpoint {ckpts[-1]}')
-        ckpt = torch.load(ckpts[-1])
-        global_step = ckpt['global_step']
-        ndf.load_state_dict(ckpt['siren_state_dict'])
-        optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-    else: 
-        logger.info(f'Starting experiment {args.expt_name}')
-        global_step = 0
-    
-    if args.test_only:
-        logger.info(f'Evaluating NDF from checkpoint {ckpts[-1]}')
-        test(ndf, reference_midsurface, meshes_dir, global_step)
-        return
+    print(f'Starting experiment {args.expt_name}')
+    global_step = 0
     
     reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples)
     material = LinearMaterial(args, reference_geometry)
@@ -696,19 +601,14 @@ def train():
                 param_group['lr'] = new_lrate         
         
         if not i % args.i_summary:
-            logger.info(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')      
-            
-        if not i % args.i_weights and i > 0:
-            torch.save({
-                'global_step': i,
-                'siren_state_dict': ndf.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict()
-            }, os.path.join(weights_dir, f'{i:06d}.tar'))
+            print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
             
         if not i % args.i_test:            
             test(ndf, reference_midsurface, meshes_dir, i)
     tb.writer.flush()
     tb.writer.close()
+    print(f'Evaluating NDF from checkpoint {args.n_iterations}')
+    test(ndf, reference_midsurface, meshes_dir, global_step)
 
 if __name__=='__main__':
     train()
