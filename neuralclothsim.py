@@ -15,119 +15,9 @@ from torch.utils.data import Dataset
 # Parts of the code (sample_points_from_meshes) borrowed from Meta Platforms, Inc.
 from typing import Tuple, Union
 from pytorch3d.structures import Meshes
-from pytorch3d.ops.mesh_face_areas_normals import mesh_face_areas_normals
-from pytorch3d.ops.packed_to_padded import packed_to_padded
 from typing import NamedTuple
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def sample_points_from_meshes(
-    meshes,
-    num_samples: int = 10000
-) -> Union[
-    torch.Tensor,
-    Tuple[torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-]:
-    """
-    Convert a batch of meshes to a batch of pointclouds by uniformly sampling
-    points on the surface of the mesh with probability proportional to the
-    face area.
-
-    Args:
-        meshes: A Meshes object with a batch of N meshes.
-        num_samples: Integer giving the number of point samples per mesh.
-
-    Returns:
-        3-element tuple containing
-
-        - **samples_xyz**: FloatTensor of shape (N, num_samples, 3) giving the
-          coordinates of sampled points for each mesh in the batch. For empty
-          meshes the corresponding row in the samples array will be filled with 0.
-        - **samples_uv**: FloatTensor of shape (N, num_samples, 2) giving the uv coodinates
-          for each sampled point. For empty meshes the corresponding row in the array will
-          be filled with 0.
-    """
-    if meshes.isempty():
-        raise ValueError("Meshes are empty.")
-
-    verts = meshes.verts_packed()
-    if not torch.isfinite(verts).all():
-        raise ValueError("Meshes contain nan or inf.")
-
-    faces = meshes.faces_packed()
-    mesh_to_face = meshes.mesh_to_faces_packed_first_idx()
-    num_meshes = len(meshes)
-    num_valid_meshes = torch.sum(meshes.valid)  # Non empty meshes.
-
-    # Initialize samples tensor with fill value 0 for empty meshes.
-    samples_xyz = torch.zeros((num_meshes, num_samples, 3), device=meshes.device)
-
-    # Only compute samples for non empty meshes
-    with torch.no_grad():
-        areas, _ = mesh_face_areas_normals(verts, faces)  # Face areas can be zero.
-        max_faces = meshes.num_faces_per_mesh().max().item()
-        areas_padded = packed_to_padded(
-            areas, mesh_to_face[meshes.valid], max_faces
-        )  # (N, F)
-
-        # TODO (gkioxari) Confirm multinomial bug is not present with real data.
-        sample_face_idxs = areas_padded.multinomial(
-            num_samples, replacement=True
-        )  # (N, num_samples)
-        sample_face_idxs += mesh_to_face[meshes.valid].view(num_valid_meshes, 1)
-
-    # Get the vertex coordinates of the sampled faces.
-    face_verts = verts[faces]
-    v0, v1, v2 = face_verts[:, 0], face_verts[:, 1], face_verts[:, 2]
-
-    # Randomly generate barycentric coords.
-    w0, w1, w2 = _rand_barycentric_coords(
-        num_valid_meshes, num_samples, verts.dtype, verts.device
-    )
-
-    # Use the barycentric coords to get a point on each sampled face.
-    a = v0[sample_face_idxs]  # (N, num_samples, 3)
-    b = v1[sample_face_idxs]
-    c = v2[sample_face_idxs]
-    samples_xyz[meshes.valid] = w0[:, :, None] * a + w1[:, :, None] * b + w2[:, :, None] * c
-    
-    face_uvs = meshes.textures.verts_uvs_padded()[0][meshes.textures.faces_uvs_padded()[0]]
-    uv0, uv1, uv2 = face_uvs[:, 0], face_uvs[:, 1], face_uvs[:, 2]
-    
-    # Use the barycentric coords to get the uv coodinate for the sampled point.
-    a_uv = uv0[sample_face_idxs]  # (N, num_samples, 3)
-    b_uv = uv1[sample_face_idxs]
-    c_uv = uv2[sample_face_idxs]
-    samples_uv = torch.zeros((num_meshes, num_samples, 2), device=meshes.device)
-    samples_uv[meshes.valid] = w0[:, :, None] * a_uv + w1[:, :, None] * b_uv + w2[:, :, None] * c_uv
-    
-    return samples_xyz, samples_uv
-
-def _rand_barycentric_coords(
-    size1, size2, dtype: torch.dtype, device: torch.device
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Helper function to generate random barycentric coordinates which are uniformly
-    distributed over a triangle.
-
-    Args:
-        size1, size2: The number of coordinates generated will be size1*size2.
-                      Output tensors will each be of shape (size1, size2).
-        dtype: Datatype to generate.
-        device: A torch.device object on which the outputs will be allocated.
-
-    Returns:
-        w0, w1, w2: Tensors of shape (size1, size2) giving random barycentric
-            coordinates
-    """
-    uv = torch.rand(2, size1, size2, dtype=dtype, device=device)
-    u, v = uv[0], uv[1]
-    u_sqrt = u.sqrt()
-    w0 = 1.0 - u_sqrt
-    w1 = u_sqrt * (1.0 - v)
-    w2 = u_sqrt * v
-    return w0, w1, w2
 
 def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim=2):
     # Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
@@ -180,19 +70,6 @@ class GridSampler(Sampler):
         curvilinear_coords[...,1] *= self.curvilinear_space.xi__2_max
         curvilinear_coords.requires_grad_(True)
       
-        return curvilinear_coords
-
-class MeshSampler(Sampler):
-    def __init__(self, n_spatial_samples: int, reference_mesh: Meshes):
-        super().__init__(n_spatial_samples)
-        self.reference_mesh = reference_mesh
-            
-    def __getitem__(self, idx):    
-        if idx > 0: raise IndexError
-
-        curvilinear_coords = sample_points_from_meshes(self.reference_mesh, self.n_spatial_samples)[1][0]            
-        curvilinear_coords.requires_grad_(True)
-                    
         return curvilinear_coords
     
 class Boundary:
@@ -257,11 +134,6 @@ class Boundary:
                 temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
                 top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
                 deformations = deformations * (1 - top_rim) + top_rim_displacement * top_rim            
-            case 'mesh_vertices':
-                for i in range(self.boundary_curvilinear_coords.shape[0]):
-                    boundary_point = torch.exp(-((curvilinear_coords[...,0:1] - self.boundary_curvilinear_coords[i][0]) ** 2 + (curvilinear_coords[...,1:2] - self.boundary_curvilinear_coords[i][1]) ** 2)/self.boundary_support)
-                    deformations = deformations * (1 - boundary_point)
-                deformations = deformations
             case _:
                 raise ValueError(f'Unknown boundary condition: {self.boundary_condition_name}')
         return deformations
@@ -312,29 +184,6 @@ class Siren(nn.Module):
 
         return deformations 
 
-class GELUReference(nn.Module):
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features):
-    
-        super().__init__()
-        self.net = []
-        self.net.append(nn.Linear(in_features, hidden_features))
-
-        for i in range(hidden_layers-1):
-            self.net.append(nn.Linear(hidden_features, hidden_features))
-            self.net.append(nn.GELU())
-        
-        self.net.append(nn.Linear(hidden_features, hidden_features))
-        self.net.append(nn.GELU())
-
-        final_linear = nn.Linear(hidden_features, out_features)
-            
-        self.net.append(final_linear)
-        self.net = nn.Sequential(*self.net)
-
-    def forward(self, curvilinear_coords):
-        output = self.net(curvilinear_coords)
-        return output
-
 from torch.autograd import grad
 
 def jacobian(y: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, int]:
@@ -376,43 +225,18 @@ class ReferenceMidSurface():
     def __init__(self, args, curvilinear_space: CurvilinearSpace):
         self.reference_geometry_name = args.reference_geometry_name
         self.boundary_curvilinear_coords = None
-        if self.reference_geometry_name == 'mesh':
-            vertices, faces, aux = load_obj(args.reference_geometry_source, load_textures=False, device=device)
-            texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces.textures_idx], verts_uvs=[aux.verts_uvs])
-            self.template_mesh = Meshes(verts=[vertices], faces=[faces.verts_idx], textures=texture).to(device)
-            if args.boundary_condition_name == 'mesh_vertices':
-                self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.reference_boundary_vertices]
-            self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations)
-            reference_mlp_verts_pred = self(self.template_mesh.textures.verts_uvs_padded())
-            self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)            
-        else:
-            # for analytical surface, use equal number of samples along each curvilinear coordinate
-            args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
-            test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
-            curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
-            curvilinear_coords[...,0] *= curvilinear_space.xi__1_max
-            curvilinear_coords[...,1] *= curvilinear_space.xi__2_max
-            vertices = self(curvilinear_coords)[0]
-            faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
-            texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
-            self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
-        if tb.writer:
-            tb.writer.add_mesh('reference_state', self.template_mesh.verts_padded(), faces=self.template_mesh.textures.faces_uvs_padded())
+        # for analytical surface, use equal number of samples along each curvilinear coordinate
+        args.train_n_spatial_samples, args.test_n_spatial_samples = math.isqrt(args.train_n_spatial_samples) ** 2, math.isqrt(args.test_n_spatial_samples) ** 2
+        test_spatial_sidelen = math.isqrt(args.test_n_spatial_samples)
+        curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
+        curvilinear_coords[...,0] *= curvilinear_space.xi__1_max
+        curvilinear_coords[...,1] *= curvilinear_space.xi__2_max
+        vertices = self(curvilinear_coords)[0]
+        faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
+        texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
+        self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
+
         save_obj(os.path.join(args.logging_dir, args.expt_name, 'reference_state.obj'), self.template_mesh.verts_packed(), self.template_mesh.textures.faces_uvs_padded()[0], verts_uvs=self.template_mesh.textures.verts_uvs_padded()[0], faces_uvs=self.template_mesh.textures.faces_uvs_padded()[0])
-        
-    def fit_reference_mlp(self, reference_mlp_lrate: float, reference_mlp_n_iterations: int):
-        self.reference_mlp = GELUReference(in_features=2, hidden_features=512, out_features=3, hidden_layers=5).to(device)
-        reference_optimizer = torch.optim.Adam(lr=reference_mlp_lrate, params=self.reference_mlp.parameters())
-        loss_fn = nn.L1Loss()        
-        for i in trange(reference_mlp_n_iterations):
-            reference_optimizer.zero_grad()
-            with torch.no_grad(): 
-                verts, uvs = sample_points_from_meshes(self.template_mesh, 400)           
-            loss = loss_fn(self.reference_mlp(uvs), verts)
-            loss.backward()
-            reference_optimizer.step()
-            if tb.writer:
-                tb.writer.add_scalar('loss/reference_fitting_loss', loss.detach().item(), i)        
         
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 
@@ -429,8 +253,6 @@ class ReferenceMidSurface():
                 R_top, R_bottom, L = 0.2, 1.5, 1
                 R = xi__2 * (R_top - R_bottom) / L + R_bottom
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
-            case 'mesh':  
-                midsurface_positions = self.reference_mlp(curvilinear_coords)
             case _: 
                 raise ValueError(f'Unknown reference_geometry_name {self.reference_geometry_name}')
         return midsurface_positions
@@ -489,8 +311,6 @@ class ReferenceGeometry():
 
     def coord_transform(self):
         with torch.no_grad():
-            #contravariant_coord_2_cartesian = torch.stack([self.a_1, self.a_2, self.a_3], dim=3)
-            #self.cartesian_coord_2_contravariant = torch.linalg.inv(contravariant_coord_2_cartesian)            
             covariant_coord_2_cartesian = torch.stack([self.a__1, self.a__2, self.a_3], dim=3)
             self.cartesian_coord_2_covariant = torch.linalg.inv(covariant_coord_2_cartesian)        
     
@@ -621,17 +441,10 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     else: 
         epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2 = epsilon_1_1_linear, epsilon_1_2_linear, epsilon_2_2_linear, kappa_1_1_linear, kappa_1_2_linear, kappa_2_2_linear
     
-    # Eq. (18), Theorem B.3, Eq. (51)
-    w_1 = -phi_1_3 + phi_1__1 * phi_1_3 + phi_1__2 * phi_2_3
-    w_2 = -phi_2_3 + phi_2__1 * phi_1_3 + phi_2__2 * phi_2_3
-    w_3 = 0.5 * (phi_1_3 * phi_3__1 + phi_2_3 * phi_3__2)
-    normal_difference = torch.einsum('ij,ijk->ijk', w_1, ref_geometry.a__1) + torch.einsum('ij,ijk->ijk', w_2, ref_geometry.a__2) + torch.einsum('ij,ijk->ijk', w_3, ref_geometry.a_3)
-    
     if not i % i_debug and tb.writer and ref_geometry.reference_midsurface.reference_geometry_name != 'mesh':
         tb.writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1[0,-ref_geometry.n_spatial_samples:], epsilon_1_2[0,-ref_geometry.n_spatial_samples:], epsilon_1_2[0,-ref_geometry.n_spatial_samples:], epsilon_2_2[0,-ref_geometry.n_spatial_samples:]), i)
         tb.writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_2_2[0,-ref_geometry.n_spatial_samples:]), i)
-    
-    return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2), normal_difference
+    return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2)
     
 class Material():
     def __init__(self, mass_area_density: float, thickness: float, ref_geometry: ReferenceGeometry):
@@ -669,103 +482,6 @@ class LinearMaterial(Material):
 class MaterialOrthotropy(NamedTuple):
     d_1: torch.Tensor
     d_2: torch.Tensor
-            
-class NonLinearMaterial(Material):
-    def __init__(self, args, ref_geometry):
-        super().__init__(args.mass_area_density, args.thickness, ref_geometry)
-        self.a11, self.a12, self.a22, self.G12 = args.a11, args.a12, args.a22, args.G12
-        
-        self.StVK = args.StVK        
-        if not self.StVK:
-            self.d = args.d
-            self.mu = [args.mu1, args.mu2, args.mu3, args.mu4]
-            self.alpha = [args.alpha1, args.alpha2, args.alpha3, args.alpha4]
-            
-            self.E_11_min, self.E_11_max, self.E_22_min, self.E_22_max, self.E_12_max = args.E_11_min, args.E_11_max, args.E_22_min, args.E_22_max, args.E_12_max
-            self.E_12_min = -self.E_12_max
-        self.i_debug = args.i_debug        
-    
-    def compute_eta(self, j: int, x: torch.Tensor) -> torch.Tensor:
-        eta = torch.zeros_like(x)
-        for i in range(self.d[j]):
-            eta += ((self.mu[j][i] / self.alpha[j][i]) * ((x + 1) ** self.alpha[j][i] - 1))
-        return eta
-    
-    def compute_eta_first_derivative(self, j: int, x: torch.Tensor) -> torch.Tensor:
-        eta_first_derivative = torch.zeros_like(x)
-        for i in range(self.d[j]):
-            eta_first_derivative += (self.mu[j][i] * (x + 1) ** (self.alpha[j][i] - 1))
-        return eta_first_derivative
-    
-    def compute_eta_second_derivative(self, j: int, x: torch.Tensor) -> torch.Tensor: 
-        eta_second_derivative = torch.zeros_like(x)
-        for i in range(self.d[j]):
-            eta_second_derivative += (self.mu[j][i] * (self.alpha[j][i] - 1) * (x + 1) ** (self.alpha[j][i] - 2))
-        return eta_second_derivative
-    
-    def strain_cutoff_extrapolation(self, E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i):
-        E11_valid = torch.logical_and(E11 > self.E_11_min, E11 < self.E_11_max)
-        E12_valid = torch.logical_and(E12 > self.E_12_min, E12 < self.E_12_max)
-        E22_valid = torch.logical_and(E22 > self.E_22_min, E22 < self.E_22_max)
-        
-        if not i % self.i_debug and tb.writer:
-            tb.writer.add_histogram('param/E11_valid', E11_valid, i)
-            tb.writer.add_histogram('param/E12_valid', E12_valid, i)
-            tb.writer.add_histogram('param/E22_valid', E22_valid, i)
-                
-        eta_first_derivative_3_E12_12_clamped = self.compute_eta_first_derivative(3, E12_clamped ** 2)
-        eta_first_derivative_2_E22_22_clamped = self.compute_eta_first_derivative(2, E22_clamped ** 2)
-        eta_first_derivative_1_E11_22_clamped = self.compute_eta_first_derivative(1, E11_clamped * E22_clamped)
-        eta_first_derivative_0_E11_11_clamped = self.compute_eta_first_derivative(0, E11_clamped ** 2)
-        eta_second_derivative_1_E11_22_clamped = self.compute_eta_second_derivative(1, E11_clamped * E22_clamped)
-        
-        extrapolated_hyperelastic_strain_energy = ~E12_valid * (2 * self.G12 * E12_clamped * eta_first_derivative_3_E12_12_clamped * (E12 - E12_clamped) + 0.5 * (2 * self.G12 * eta_first_derivative_3_E12_12_clamped + 4 * self.G12 * E12_clamped ** 2 * self.compute_eta_second_derivative(3, E12_clamped ** 2)) * (E12 - E12_clamped) ** 2)
-        extrapolated_hyperelastic_strain_energy += ~E11_valid * ((self.a11 * E11_clamped * eta_first_derivative_0_E11_11_clamped + self.a12 * E22_clamped * eta_first_derivative_1_E11_22_clamped) * (E11 - E11_clamped) + 0.5 * (self.a11 * eta_first_derivative_0_E11_11_clamped + 2 * self.a11 * E11_clamped ** 2 * self.compute_eta_second_derivative(0, E11_clamped ** 2) + self.a12 * E22_clamped ** 2 * eta_second_derivative_1_E11_22_clamped) * (E11 - E11_clamped) ** 2)
-        extrapolated_hyperelastic_strain_energy += ~E22_valid * ((self.a22 * E22_clamped * eta_first_derivative_2_E22_22_clamped + self.a12 * E11_clamped * eta_first_derivative_1_E11_22_clamped) * (E22 - E22_clamped) + 0.5 * (self.a22 * eta_first_derivative_2_E22_22_clamped + 2 * self.a22 * E22_clamped ** 2 * self.compute_eta_second_derivative(2, E22_clamped ** 2) + self.a12 * E11_clamped ** 2 * eta_second_derivative_1_E11_22_clamped) * (E22 - E22_clamped) ** 2)
-        extrapolated_hyperelastic_strain_energy += (~E11_valid * ~E22_valid) * (self.a12 * eta_first_derivative_1_E11_22_clamped + self.a12 * E11_clamped * E22_clamped * eta_second_derivative_1_E11_22_clamped) * (E11 - E11_clamped) * (E22 - E22_clamped)
-        
-        return extrapolated_hyperelastic_strain_energy
-            
-    def compute_internal_energy(self, strain: Strain, material_directions: MaterialOrthotropy, i: int, xi__3: float) -> torch.Tensor:
-        # Eq. (22)
-        E11_shell_basis = strain.epsilon_1_1 + xi__3 * strain.kappa_1_1
-        E12_shell_basis = strain.epsilon_1_2 + xi__3 * strain.kappa_1_2
-        E22_shell_basis = strain.epsilon_2_2 + xi__3 * strain.kappa_2_2
-        
-        g__1__1, g__1__2, g__2__1, g__2__2 = self.ref_geometry.shell_base_vectors(xi__3)        
-        E_shell_basis = torch.einsum('ij,ijkl->ijkl', E11_shell_basis, g__1__1) + torch.einsum('ij,ijkl->ijkl', E12_shell_basis, g__1__2) + torch.einsum('ij,ijkl->ijkl', E12_shell_basis, g__2__1) + torch.einsum('ij,ijkl->ijkl', E22_shell_basis, g__2__2)
-        
-        # In all the subsequent operations, strain components are in the material/orthotropy basis, i.e E_tilde in the supplement Eq. (29)
-        E11 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E_shell_basis, material_directions.d_1)
-        E12 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_1, E_shell_basis, material_directions.d_2)
-        E22 = torch.einsum('ijk,ijkl,ijl->ij', material_directions.d_2, E_shell_basis, material_directions.d_2)
-          
-        if self.StVK:
-            hyperelastic_strain_energy = self.a11 * 0.5 * E11 ** 2 + self.a12 * E11 * E22 + self.a22 * 0.5 * E22 ** 2 + self.G12 * E12 ** 2                  
-        else:                
-            E11_clamped = torch.clamp(E11, self.E_11_min, self.E_11_max)
-            E12_clamped = torch.clamp(E12, self.E_12_min, self.E_12_max)
-            E22_clamped = torch.clamp(E22, self.E_22_min, self.E_22_max)
-            
-            hyperelastic_strain_energy = self.a11 * 0.5 * self.compute_eta(0, E11_clamped ** 2) + self.a12 * self.compute_eta(1, E11_clamped * E22_clamped) + self.a22 * 0.5 * self.compute_eta(2, E22_clamped ** 2) + self.G12 * self.compute_eta(3, E12_clamped ** 2)            
-            hyperelastic_strain_energy += self.strain_cutoff_extrapolation(E11, E12, E22, E11_clamped, E12_clamped, E22_clamped, i)          
-            
-        if not i % self.i_debug and tb.writer:
-            tb.writer.add_histogram('param/E11', E11, i)
-            tb.writer.add_histogram('param/E12', E12, i)
-            tb.writer.add_histogram('param/E22', E22, i)
-        
-        return hyperelastic_strain_energy
-
-import matplotlib.pyplot as plt
-
-def get_plot_single_tensor(tensor):
-    fig = plt.figure()
-    ax = fig.gca()
-    spatial_sidelen = math.isqrt(tensor.shape[0])
-    pcolormesh = ax.pcolormesh(tensor.view(spatial_sidelen, spatial_sidelen).detach().cpu())
-    fig.colorbar(pcolormesh, ax=ax)
-    return fig
 
 class Energy:
     def __init__(self, ref_geometry: ReferenceGeometry, material: Material, gravity_acceleration: list, i_debug: int):
@@ -776,31 +492,13 @@ class Energy:
         self.i_debug = i_debug
         
     def __call__(self, deformations: torch.Tensor, i: int) -> torch.Tensor:   
-        strain, normal_difference = compute_strain(deformations, self.ref_geometry, i, self.i_debug)
-        
-        if isinstance(self.material, LinearMaterial):        
-            hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
-            external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
-            mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid)
-            mechanical_energy = mechanical_energy * torch.sqrt(self.ref_geometry.a)
+        strain = compute_strain(deformations, self.ref_geometry, i, self.i_debug)
+         
+        hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
+        external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
+        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid)
+        mechanical_energy = mechanical_energy * torch.sqrt(self.ref_geometry.a)
             
-        elif isinstance(self.material, NonLinearMaterial):
-            d_1 = normalize((self.ref_geometry.a_1), dim=2)
-            d_2 = torch.linalg.cross(self.ref_geometry.a_3, d_1)
-            material_directions = MaterialOrthotropy(d_1, d_2)
-            hyperelastic_strain_energy_top = self.material.compute_internal_energy(strain, material_directions, i, -0.5 * self.material.thickness)
-            hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain, material_directions, i, 0.)
-            hyperelastic_strain_energy_bottom = self.material.compute_internal_energy(strain, material_directions, i, 0.5 * self.material.thickness)                      
-            
-            external_energy_top = torch.einsum('ijk,ijk->ij', self.external_load, deformations - 0.5 * self.material.thickness * normal_difference)
-            external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
-            external_energy_bottom = torch.einsum('ijk,ijk->ij', self.external_load, deformations + 0.5 * self.material.thickness * normal_difference)
-            mechanical_energy = (hyperelastic_strain_energy_top - external_energy_top) + 4 * (hyperelastic_strain_energy_mid - external_energy_mid) + (external_energy_bottom - hyperelastic_strain_energy_bottom)
-            mechanical_energy = mechanical_energy * torch.sqrt(self.ref_geometry.a) / 6.
-        if not i % self.i_debug and tb.writer:
-            tb.writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 
-            if self.ref_geometry.reference_midsurface.reference_geometry_name != 'mesh':
-                tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,-self.ref_geometry.n_spatial_samples:]), i)
         return mechanical_energy
 
 import imageio
@@ -968,13 +666,10 @@ def train():
         return
     
     reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples)
-    material = LinearMaterial(args, reference_geometry) if args.material_type == 'linear' else NonLinearMaterial(args, reference_geometry)
+    material = LinearMaterial(args, reference_geometry)
     energy = Energy(reference_geometry, material, args.gravity_acceleration, args.i_debug)
     
-    if args.reference_geometry_name == 'mesh':
-        sampler = MeshSampler(args.train_n_spatial_samples, reference_midsurface.template_mesh)
-    else:
-        sampler = GridSampler(args.train_n_spatial_samples, curvilinear_space)
+    sampler = GridSampler(args.train_n_spatial_samples, curvilinear_space)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
     
     if tb.writer:
