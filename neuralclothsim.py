@@ -2,9 +2,7 @@ import torch
 import os
 from tqdm import trange
 from shutil import copyfile
-
 import utils.tb as tb
-
 import torch.nn as nn
 import numpy as np
 import math
@@ -53,14 +51,12 @@ class GridSampler(Dataset):
         if idx > 0: raise IndexError
          
         curvilinear_coords = self.cell_curvilinear_coords.clone()        
-        
         t_rand_spatial = torch.rand([self.n_spatial_samples, 2], device=device) / self.spatial_sidelen        
         curvilinear_coords += t_rand_spatial
         
         curvilinear_coords[...,0] *= self.curvilinear_space.xi__1_max
         curvilinear_coords[...,1] *= self.curvilinear_space.xi__2_max
         curvilinear_coords.requires_grad_(True)
-      
         return curvilinear_coords
     
 class Boundary:
@@ -470,21 +466,13 @@ class Energy:
          
         hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
         external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
-        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid)
-        mechanical_energy = mechanical_energy * torch.sqrt(self.ref_geometry.a)
-            
+        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(self.ref_geometry.a)            
         return mechanical_energy
 
-import imageio
-
-def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None, tex_image_file=None):
+def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None):
     meshes_dir = os.path.join(meshes_dir, f'{i}')
     os.makedirs(meshes_dir, exist_ok=True)
-    if tex_image_file is not None:
-        texture_map = torch.tensor(imageio.imread(tex_image_file)/255., dtype=torch.float, device=device)
-    else:
-        texture_map = None
-    save_obj(os.path.join(meshes_dir, 'simulated.obj'), positions[0], faces, verts_uvs=verts_uvs, faces_uvs=faces, texture_map=texture_map)
+    save_obj(os.path.join(meshes_dir, 'simulated.obj'), positions[0], faces, verts_uvs=verts_uvs, faces_uvs=faces, texture_map=None)
 
 import configargparse
 
@@ -501,9 +489,7 @@ def get_config_parser():
     parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
     
     # material parameters
-    parser.add('-m', '--material_filepath', is_config_file=True, default='material/linear_1.ini', help='name of the material')
-    parser.add_argument('--material_type', type=str, help='type of material; can be linear (isotropic) or nonlinear (orthotropic Clyde model)')
-    parser.add_argument('--StVK', action='store_true', help='whether to use the St.Venant-Kirchhoff simplification of the Clyde material model')
+    parser.add('-m', '--material_filepath', is_config_file=True, default='material/linear_2.ini', help='name of the material')
     
     parser.add_argument('--mass_area_density', type=float, default=0.144, help='mass area density in kg/m^2 ')
     parser.add_argument('--thickness', type=float, default=0.0012, help='thickness in meters')
@@ -514,7 +500,6 @@ def get_config_parser():
     
     # training options
     parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
-    parser.add_argument('--train_n_temporal_samples', type=int, default=10, help='N_t, number of temporal samples used for training')
     parser.add_argument('--lrate', type=float, default=5e-6, help='learning rate')
     parser.add_argument('--decay_lrate', action='store_true', default=True, help='whether to decay learning rate')
     parser.add_argument('--lrate_decay_steps', type=int, default=5000, help='learning rate decay steps')
@@ -522,7 +507,6 @@ def get_config_parser():
     parser.add_argument('--n_iterations', type=int, default=5001, help='total number of training iterations')
     
     # logging/saving options
-    parser.add_argument('--logging_dir', type=str, default='logs', help='root directory for logging')
     parser.add_argument("--i_summary", type=int, default=100, help='frequency of logging losses')
     parser.add_argument("--i_test", type=int, default=100, help='frequency of evaluating NDF and saving simulated meshes during training')
     
@@ -530,14 +514,8 @@ def get_config_parser():
     parser.add_argument('--debug', action='store_true', default=True, help='whether to run in debug mode; this will log the reference geometric quantities (e.g. metric and curvature tensor), the strains, and the simulated states to TensorBoard')
     parser.add_argument('--i_debug', type=int, default=200, help='frequency of Tensordboard logging')
     
-    # reload options
-    parser.add_argument('--no_reload', action='store_true', help='do not resume training from checkpoint, rather train from scratch')
-    parser.add_argument("--i_ckpt", type=int, help='weight checkpoint to reload for resuming training or performing evaluation; if None, the latest checkpoint is used')
-    parser.add_argument('--test_only', action='store_true', help='evaluate NDF from i_ckpt and save simulated meshes; do not resume training')
-    
     # testing options
     parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
-    parser.add_argument('--test_n_temporal_samples', type=int, default=2, help='N_t, number of temporal samples used for evaluation')
                             
     return parser
                         
@@ -551,14 +529,10 @@ def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str,
         
 def train():  
     args = get_config_parser().parse_args()
-    log_dir = os.path.join(args.logging_dir, args.expt_name)
+    log_dir = os.path.join('logs', args.expt_name)
     meshes_dir = os.path.join(log_dir, 'meshes')   
-        
-    for dir in [log_dir]:
-        os.makedirs(dir, exist_ok=True)
             
     tb.set_tensorboard_writer(log_dir, args.debug)
-    copyfile(args.config_filepath, os.path.join(log_dir, 'args.ini'))
 
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
