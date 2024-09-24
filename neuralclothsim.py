@@ -238,7 +238,7 @@ class ReferenceMidSurface():
         return midsurface_positions
     
 from torch.nn.functional import normalize
-from utils.plot import get_plot_grid_tensor
+from utils.plot import get_plot_grid_tensor, get_plot_single_tensor
 
 class ReferenceGeometry(): 
     def __init__(self, reference_midsurface: ReferenceMidSurface, n_spatial_samples: int):
@@ -373,7 +373,7 @@ def covariant_first_derivative_of_covariant_second_order_tensor(covariant_matrix
     
     return phi_1_1cd1, phi_1_1cd2, phi_1_2cd1, phi_1_2cd2, phi_2_1cd1, phi_2_1cd2, phi_2_2cd1, phi_2_2cd2
 
-def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, i: int, i_debug: int, nonlinear_strain=True): 
+def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, i: int, nonlinear_strain=True): 
     
     deformations_local = torch.einsum('ijkl,ijl->ijk', ref_geometry.cartesian_coord_2_covariant, deformations)
     u_1, u_2, u_3 = deformations_local[...,0], deformations_local[...,1], deformations_local[...,2]
@@ -420,18 +420,18 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     else: 
         epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2 = epsilon_1_1_linear, epsilon_1_2_linear, epsilon_2_2_linear, kappa_1_1_linear, kappa_1_2_linear, kappa_2_2_linear
     
-    if not i % i_debug and tb.writer and ref_geometry.reference_midsurface.reference_geometry_name != 'mesh':
+    if not i % 200 and tb.writer:
         tb.writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1[0,-ref_geometry.n_spatial_samples:], epsilon_1_2[0,-ref_geometry.n_spatial_samples:], epsilon_1_2[0,-ref_geometry.n_spatial_samples:], epsilon_2_2[0,-ref_geometry.n_spatial_samples:]), i)
         tb.writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_1_2[0,-ref_geometry.n_spatial_samples:], kappa_2_2[0,-ref_geometry.n_spatial_samples:]), i)
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2)
     
 class LinearMaterial():
-    def __init__(self, args, ref_geometry: ReferenceGeometry):
-        self.mass_area_density = args.mass_area_density
+    def __init__(self, mass_area_density, thickness, youngs_modulus, poissons_ratio, ref_geometry: ReferenceGeometry):
+        self.mass_area_density = mass_area_density
         self.ref_geometry = ref_geometry
-        self.poissons_ratio = args.poissons_ratio
-        self.D = (args.youngs_modulus * args.thickness) / (1 - args.poissons_ratio ** 2)
-        self.B = (args.thickness ** 2) * self.D / 12 
+        self.poissons_ratio = poissons_ratio
+        self.D = (youngs_modulus * thickness) / (1 - poissons_ratio ** 2)
+        self.B = (thickness ** 2) * self.D / 12 
     
     def compute_internal_energy(self, strain: Strain) -> torch.Tensor:
         H__1111, H__1112, H__1122, H__1212, H__1222, H__2222 = self.ref_geometry.elastic_tensor(self.poissons_ratio)
@@ -454,19 +454,21 @@ class MaterialOrthotropy(NamedTuple):
     d_2: torch.Tensor
 
 class Energy:
-    def __init__(self, ref_geometry: ReferenceGeometry, material: LinearMaterial, gravity_acceleration: list, i_debug: int):
+    def __init__(self, ref_geometry: ReferenceGeometry, material: LinearMaterial):
         self.ref_geometry = ref_geometry
         self.material = material
-        external_load = torch.tensor(gravity_acceleration, device=device) * material.mass_area_density
-        self.external_load = external_load.expand(1, ref_geometry.n_spatial_samples, 3)
-        self.i_debug = i_debug
+        self.external_load = torch.tensor([0,-9.8, 0], device=device).expand(1, ref_geometry.n_spatial_samples, 3) * material.mass_area_density
         
     def __call__(self, deformations: torch.Tensor, i: int) -> torch.Tensor:   
-        strain = compute_strain(deformations, self.ref_geometry, i, self.i_debug)
+        strain = compute_strain(deformations, self.ref_geometry, i)
          
         hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
         external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
-        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(self.ref_geometry.a)            
+        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(self.ref_geometry.a)
+        if not i % 200 and tb.writer:
+            tb.writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 
+            if self.ref_geometry.reference_midsurface.reference_geometry_name != 'mesh':
+                tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,-self.ref_geometry.n_spatial_samples:]), i)        
         return mechanical_energy
 
 def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None):
@@ -486,17 +488,6 @@ def get_config_parser():
     parser.add_argument('--xi__1_max', type=float, default=2 * math.pi, help='max value for xi__1; 2 * pi for cylinder or cone, and Lx for rectangle. min value for xi__1 is assumed to be 0')
     parser.add_argument('--xi__2_max', type=float, default=1, help='max value for xi__2; Ly for all reference geometries. min value for xi__2 is assumed to be 0')
     parser.add_argument('--boundary_condition_name', type=str, default='top_left_fixed', help='name of the spatio-temporal boundary condition; can be one of top_left_fixed, top_left_top_right_moved, adjacent_edges_fixed, nonboundary_handle_fixed, nonboundary_edge_fixed for reference geometry as a rectangle, and top_bottom_rims_compression, top_bottom_rims_torsion for cylinder, top_rim_fixed, top_rim_torsion for cone, and mesh_vertices for mesh')
-    parser.add_argument('--gravity_acceleration', type=float, nargs='+', default=[0,-9.8, 0], help='acceleration due to gravity')
-    
-    # material parameters
-    parser.add('-m', '--material_filepath', is_config_file=True, default='material/linear_2.ini', help='name of the material')
-    
-    parser.add_argument('--mass_area_density', type=float, default=0.144, help='mass area density in kg/m^2 ')
-    parser.add_argument('--thickness', type=float, default=0.0012, help='thickness in meters')
-    
-    # material parameters for a linear material
-    parser.add_argument('--youngs_modulus', type=float, default=5000, help='Young\'s modulus')
-    parser.add_argument('--poissons_ratio', type=float, default=0.25, help='Poisson\'s ratio')
     
     # training options
     parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
@@ -505,16 +496,6 @@ def get_config_parser():
     parser.add_argument('--lrate_decay_steps', type=int, default=5000, help='learning rate decay steps')
     parser.add_argument('--lrate_decay_rate', type=float, default=0.1, help='learning rate decay rate')    
     parser.add_argument('--n_iterations', type=int, default=5001, help='total number of training iterations')
-    
-    # logging/saving options
-    parser.add_argument("--i_summary", type=int, default=100, help='frequency of logging losses')
-    parser.add_argument("--i_test", type=int, default=100, help='frequency of evaluating NDF and saving simulated meshes during training')
-    
-    # debug options
-    parser.add_argument('--debug', action='store_true', default=True, help='whether to run in debug mode; this will log the reference geometric quantities (e.g. metric and curvature tensor), the strains, and the simulated states to TensorBoard')
-    parser.add_argument('--i_debug', type=int, default=200, help='frequency of Tensordboard logging')
-    
-    # testing options
     parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
                             
     return parser
@@ -532,7 +513,7 @@ def train():
     log_dir = os.path.join('logs', args.expt_name)
     meshes_dir = os.path.join(log_dir, 'meshes')   
             
-    tb.set_tensorboard_writer(log_dir, args.debug)
+    tb.set_tensorboard_writer(log_dir, True)
 
     curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     reference_midsurface = ReferenceMidSurface(args, curvilinear_space)
@@ -545,14 +526,11 @@ def train():
     global_step = 0
     
     reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples)
-    material = LinearMaterial(args, reference_geometry)
-    energy = Energy(reference_geometry, material, args.gravity_acceleration, args.i_debug)
+    material = LinearMaterial(0.144, 0.0012, 5000, 0.25, reference_geometry)
+    energy = Energy(reference_geometry, material)
     
     sampler = GridSampler(args.train_n_spatial_samples, curvilinear_space)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
-    
-    if tb.writer:
-        tb.writer.add_text('args', str(args))
         
     for i in trange(global_step, args.n_iterations):
         curvilinear_coords = next(iter(dataloader))
@@ -574,11 +552,10 @@ def train():
             for param_group in optimizer.param_groups:
                 param_group['lr'] = new_lrate         
         
-        if not i % args.i_summary:
+        if not i % 100:
             print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
-            
-        if not i % args.i_test:            
             test(ndf, reference_midsurface, meshes_dir, i)
+            
     tb.writer.flush()
     tb.writer.close()
     print(f'Evaluating NDF from checkpoint {args.n_iterations}')
