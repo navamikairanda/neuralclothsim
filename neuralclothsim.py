@@ -6,7 +6,7 @@ import math
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from typing import Tuple, Union, NamedTuple
+from typing import Tuple, NamedTuple
 from pytorch3d.structures import Meshes
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -239,7 +239,7 @@ class ReferenceGeometry():
         self.curvature_tensor()
         self.christoffel_symbol()
         self.coord_transform()
-        if debug and tb.writer and self.reference_midsurface.reference_geometry_name != 'mesh':
+        if debug and tb.writer:
             tb.writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]))
             tb.writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0,:self.n_spatial_samples], self.b_1_2[0,:self.n_spatial_samples],self.b_2_1[0,:self.n_spatial_samples], self.b_2_2[0,:self.n_spatial_samples]))
             
@@ -453,9 +453,8 @@ class Energy:
         mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(self.ref_geometry.a)
         if not i % 200 and tb.writer:
             tb.writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 
-            if self.ref_geometry.reference_midsurface.reference_geometry_name != 'mesh':
-                tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,-self.ref_geometry.n_spatial_samples:]), i)        
-        return mechanical_energy
+            tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0,-self.ref_geometry.n_spatial_samples:]), i)        
+        return mechanical_energy.mean()
 
 def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None):
     meshes_dir = os.path.join(meshes_dir, f'{i}')
@@ -477,17 +476,12 @@ def get_config_parser():
     
     # training options
     parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
-    parser.add_argument('--lrate', type=float, default=5e-6, help='learning rate')
-    parser.add_argument('--decay_lrate', action='store_true', default=True, help='whether to decay learning rate')
-    parser.add_argument('--lrate_decay_steps', type=int, default=5000, help='learning rate decay steps')
-    parser.add_argument('--lrate_decay_rate', type=float, default=0.1, help='learning rate decay rate')    
     parser.add_argument('--n_iterations', type=int, default=5001, help='total number of training iterations')
     parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
                             
     return parser
                         
 def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str, i: int):
-    
     test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded())
     test_deformed_positions = reference_midsurface.template_mesh.verts_padded() + test_deformations
     if tb.writer:
@@ -506,10 +500,9 @@ def train():
     boundary = Boundary(args.reference_geometry_name, args.boundary_condition_name, curvilinear_space)
     
     ndf = Siren(boundary, in_features=3 if args.reference_geometry_name in ['cylinder', 'cone'] else 2).to(device)
-    optimizer = torch.optim.Adam(lr=args.lrate, params=ndf.parameters())
+    optimizer = torch.optim.Adam(lr=5e-6, params=ndf.parameters())
     
     print(f'Starting experiment {args.expt_name}')
-    global_step = 0
     
     reference_geometry = ReferenceGeometry(reference_midsurface, args.train_n_spatial_samples)
     material = LinearMaterial(0.144, 0.0012, 5000, 0.25, reference_geometry)
@@ -518,26 +511,18 @@ def train():
     sampler = GridSampler(args.train_n_spatial_samples, curvilinear_space)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
         
-    for i in trange(global_step, args.n_iterations):
+    for i in trange(0, args.n_iterations):
         curvilinear_coords = next(iter(dataloader))
         reference_geometry(curvilinear_coords, i==0)
-        deformations = ndf(reference_geometry.curvilinear_coords)                    
-        mechanical_energy = energy(deformations, i)
-        loss = mechanical_energy.mean()
+        deformations = ndf(reference_geometry.curvilinear_coords)
+        loss = energy(deformations, i)
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
         
-        if tb.writer:               
-            tb.writer.add_scalar('loss/loss', loss, i)
-            tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)
-            
-        if args.decay_lrate:
-            new_lrate = args.lrate * args.lrate_decay_rate ** (i / args.lrate_decay_steps)
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = new_lrate         
-        
+        tb.writer.add_scalar('loss/loss', loss, i)
+        tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)
         if not i % 100:
             print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
             test(ndf, reference_midsurface, meshes_dir, i)
@@ -545,7 +530,7 @@ def train():
     tb.writer.flush()
     tb.writer.close()
     print(f'Evaluating NDF from checkpoint {args.n_iterations}')
-    test(ndf, reference_midsurface, meshes_dir, global_step)
+    test(ndf, reference_midsurface, meshes_dir, args.n_iterations)
 
 if __name__=='__main__':
     train()
