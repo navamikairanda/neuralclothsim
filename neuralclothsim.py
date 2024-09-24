@@ -1,33 +1,25 @@
-import torch
 import os
 from tqdm import trange
-from shutil import copyfile
 import utils.tb as tb
-import torch.nn as nn
 import numpy as np
 import math
+import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from typing import Tuple, Union, NamedTuple
 from pytorch3d.structures import Meshes
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def get_mgrid(sidelen: Union[Tuple[int], Tuple[int, int]], stratified=False, dim=2):
+def get_mgrid(sidelen: Tuple[int, int], stratified=False, dim=2):
     # Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
-    if dim == 1:
-        sidelen_x = sidelen[0] if stratified else sidelen[0] - 1
-        grid_coords = np.stack(np.mgrid[:sidelen[0]], axis=-1)[None, ..., None].astype(np.float32)
-        grid_coords[..., 0] = grid_coords[..., 0] / sidelen_x
-    elif dim == 2:
-        grid_coords = np.stack(np.mgrid[:sidelen[0], :sidelen[1]], axis=-1)[None, ...].astype(np.float32)
-        if stratified: 
-            sidelen_x, sidelen_y = sidelen[0], sidelen[1]
-        else: 
-            sidelen_x, sidelen_y = sidelen[0] - 1, sidelen[1] - 1
-        grid_coords[0, :, :, 0] = grid_coords[0, :, :, 0] / sidelen_x
-        grid_coords[0, :, :, 1] = grid_coords[0, :, :, 1] / sidelen_y
-    else:
-        raise NotImplementedError('Not implemented for dim=%d' % dim)
+    grid_coords = np.stack(np.mgrid[:sidelen[0], :sidelen[1]], axis=-1)[None, ...].astype(np.float32)
+    if stratified: 
+        sidelen_x, sidelen_y = sidelen[0], sidelen[1]
+    else: 
+        sidelen_x, sidelen_y = sidelen[0] - 1, sidelen[1] - 1
+    grid_coords[0, :, :, 0] = grid_coords[0, :, :, 0] / sidelen_x
+    grid_coords[0, :, :, 1] = grid_coords[0, :, :, 1] / sidelen_y    
     grid_coords = torch.Tensor(grid_coords).to(device).view(-1, dim)
     return grid_coords
 
@@ -119,9 +111,7 @@ class Boundary:
                 rotation = math.pi / 2
                 temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
                 top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
-                deformations = deformations * (1 - top_rim) + top_rim_displacement * top_rim            
-            case _:
-                raise ValueError(f'Unknown boundary condition: {self.boundary_condition_name}')
+                deformations = deformations * (1 - top_rim) + top_rim_displacement * top_rim
         return deformations
 
 class SineLayer(nn.Module):      
@@ -224,8 +214,6 @@ class ReferenceMidSurface():
         match self.reference_geometry_name:
             case 'rectangle_xy': #vertical
                 midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
-            case 'rectangle_xz': #horizontal
-                midsurface_positions = torch.stack([xi__1, 0.* (xi__1**2 - xi__2**2), xi__2], dim=2)
             case 'cylinder':
                 R = 0.25
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
@@ -233,8 +221,6 @@ class ReferenceMidSurface():
                 R_top, R_bottom, L = 0.2, 1.5, 1
                 R = xi__2 * (R_top - R_bottom) / L + R_bottom
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
-            case _: 
-                raise ValueError(f'Unknown reference_geometry_name {self.reference_geometry_name}')
         return midsurface_positions
     
 from torch.nn.functional import normalize
