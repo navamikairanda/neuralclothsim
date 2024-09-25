@@ -123,7 +123,6 @@ class Siren(nn.Module):
         normalized_coords = self.boundary.periodic_condition_and_normalization(curvilinear_coords)        
         deformations = self.net(normalized_coords)
         deformations = self.boundary.dirichlet_condition(deformations, curvilinear_coords)
-
         return deformations 
 
 from torch.autograd import grad
@@ -170,7 +169,7 @@ class ReferenceMidSurface():
         curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
         curvilinear_coords[...,0] *= curvilinear_space.xi__1_max
         curvilinear_coords[...,1] *= curvilinear_space.xi__2_max
-        self.template_mesh = Mesh(verts=self(curvilinear_coords)[0], faces=generate_mesh_topology(test_spatial_sidelen), curvilinear_coords=curvilinear_coords)
+        self.template_mesh = Mesh(verts=self(curvilinear_coords), faces=generate_mesh_topology(test_spatial_sidelen)[None], curvilinear_coords=curvilinear_coords)
         
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 
@@ -289,25 +288,7 @@ class ReferenceGeometry():
         H__1222 = poissons_ratio * self.a__1__2 * self.a__2__2 + 0.5 * (1 - poissons_ratio) * (self.a__1__2 * self.a__2__2 + self.a__1__2 * self.a__2__2)
         H__2222 = poissons_ratio * self.a__2__2 * self.a__2__2 + 0.5 * (1 - poissons_ratio) * (self.a__2__2 * self.a__2__2 + self.a__2__2 * self.a__2__2)
         return H__1111, H__1112, H__1122, H__1212, H__1222, H__2222
-        
-    def shell_base_vectors(self, xi__3: float):
-        g_1_1 = self.a_1_1 - 2 * xi__3 * self.b_1_1
-        g_1_2 = self.a_1_2 - 2 * xi__3 * self.b_1_2
-        g_2_2 = self.a_2_2 - 2 * xi__3 * self.b_2_2
-        
-        g_1 = self.a_1 + xi__3 * self.a_3pd[...,0]
-        g_2 = self.a_2 + xi__3 * self.a_3pd[...,1]
-        g_covariant_matrix = torch.stack([torch.stack([g_1_1, g_1_2], dim=2), torch.stack([g_1_2, g_2_2], dim=2)], dim=2) 
-        g_contravariant_matrix = torch.linalg.inv(g_covariant_matrix)
-        g__1 = torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,0,0], g_1) + torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,0,1], g_2)
-        g__2 = torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,1,0], g_1) + torch.einsum('ij,ijk->ijk', g_contravariant_matrix[...,1,1], g_2)
-
-        g__1__1 = torch.einsum('ijk,ijl->ijkl', g__1, g__1)
-        g__1__2 = torch.einsum('ijk,ijl->ijkl', g__1, g__2)
-        g__2__1 = torch.einsum('ijk,ijl->ijkl', g__2, g__1)
-        g__2__2 = torch.einsum('ijk,ijl->ijkl', g__2, g__2)
-        return g__1__1, g__1__2, g__2__1, g__2__2    
-
+    
 class Strain(NamedTuple):
     epsilon_1_1: torch.Tensor
     epsilon_1_2: torch.Tensor
@@ -430,18 +411,18 @@ class Energy:
     def __call__(self, deformations: torch.Tensor, i: int) -> torch.Tensor:   
         strain = compute_strain(deformations, self.ref_geometry, i)
          
-        hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
-        external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
-        mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(self.ref_geometry.a)
+        hyperelastic_strain_energy = self.material.compute_internal_energy(strain)
+        external_energy = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
+        mechanical_energy = (hyperelastic_strain_energy - external_energy) * torch.sqrt(self.ref_geometry.a)
         if not i % 200:
-            tb_writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 
-            tb_writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid), i)
+            tb_writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy, i) 
+            tb_writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy), i)
         return mechanical_energy.mean()
                          
 def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, i: int):
     test_deformations = ndf(reference_midsurface.template_mesh.curvilinear_coords)
-    test_deformed_positions = reference_midsurface.template_mesh.verts + test_deformations[0]
-    tb_writer.add_mesh('simulated_states', test_deformed_positions[None], faces=reference_midsurface.template_mesh.faces[None], global_step=i)
+    test_deformed_positions = reference_midsurface.template_mesh.verts + test_deformations
+    tb_writer.add_mesh('simulated_states', test_deformed_positions, faces=reference_midsurface.template_mesh.faces, global_step=i)
      
 def train(reference_geometry_name, boundary_condition_name, test_n_spatial_samples, n_iterations):
     log_dir = os.path.join('logs', reference_geometry_name)
@@ -466,7 +447,7 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
         
     for i in trange(0, n_iterations):
         curvilinear_coords = next(iter(dataloader))
-        reference_geometry(curvilinear_coords, i==0)
+        reference_geometry(curvilinear_coords, debug=i==0)
         deformations = ndf(reference_geometry.curvilinear_coords)
         loss = energy(deformations, i)
         
