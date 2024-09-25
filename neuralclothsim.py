@@ -225,8 +225,8 @@ class ReferenceGeometry():
         self.christoffel_symbol()
         self.coord_transform()
         if debug:
-            tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1, self.a_1_2, self.a_1_2, self.a_2_2))
-            tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1, self.b_1_2, self.b_2_1, self.b_2_2))
+            tb_writer.add_figure('tensor/metric_tensor', get_plot_grid_tensor(self.a_1_1, self.a_1_2, self.a_1_2, self.a_2_2))
+            tb_writer.add_figure('tensor/curvature_tensor', get_plot_grid_tensor(self.b_1_1, self.b_1_2, self.b_2_1, self.b_2_2))
             
     def base_vectors(self):
         base_vectors = jacobian(self.midsurface_positions, self.curvilinear_coords)[0]
@@ -374,8 +374,8 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
         epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2 = epsilon_1_1_linear, epsilon_1_2_linear, epsilon_2_2_linear, kappa_1_1_linear, kappa_1_2_linear, kappa_2_2_linear
     
     if not i % 200:
-        tb_writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1, epsilon_1_2, epsilon_1_2, epsilon_2_2), i)
-        tb_writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1, kappa_1_2, kappa_1_2, kappa_2_2), i)
+        tb_writer.add_figure(f'strain/membrane_strain', get_plot_grid_tensor(epsilon_1_1, epsilon_1_2, epsilon_1_2, epsilon_2_2), i)
+        tb_writer.add_figure(f'strain/bending_strain', get_plot_grid_tensor(kappa_1_1, kappa_1_2, kappa_1_2, kappa_2_2), i)
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2)
     
 class LinearMaterial():
@@ -416,7 +416,7 @@ class Energy:
         mechanical_energy = (hyperelastic_strain_energy - external_energy) * torch.sqrt(self.ref_geometry.a)
         if not i % 200:
             tb_writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy, i) 
-            tb_writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy), i)
+            tb_writer.add_figure('strain/hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy), i)
         return mechanical_energy.mean()
                          
 def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, i: int):
@@ -455,13 +455,13 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
         loss.backward()
         optimizer.step()    
         
-        tb_writer.add_scalar('loss/loss', loss, i)
-        tb_writer.add_scalar('param/mean_deformation', deformations.mean(), i)
+        tb_writer.add_scalar('scalar/loss', loss, i)
+        tb_writer.add_scalar('scalar/mean_deformation', deformations.mean(), i)
         if not i % 100:
             print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
             test(ndf, reference_midsurface, i)
     tb_writer.flush()
 
-#train('napkin', 'top_left_fixed', 400, 601)
-train('sleeve', 'top_bottom_rims_compression', 400, 601)
+train('napkin', 'top_left_fixed', 400, 1001)
+#train('sleeve', 'top_bottom_rims_compression', 400, 4001)
 #train('skirt', 'top_rim_fixed', 400, 601)
