@@ -1,12 +1,12 @@
 import os
 from tqdm import trange
-import utils.tb as tb
 import numpy as np
 import math
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from typing import Tuple, NamedTuple
+from torch.utils.tensorboard import SummaryWriter  
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -58,7 +58,7 @@ class Boundary:
         self.boundary_support = 0.01
 
     def periodic_condition_and_normalization(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
-        if self.reference_geometry_name in ['cylinder', 'cone']:
+        if self.reference_geometry_name in ['sleeve', 'skirt']:
             normalized_coords = torch.cat([(torch.cos(curvilinear_coords[...,0:1]) + 1)/2, (torch.sin(curvilinear_coords[...,0:1]) + 1)/2, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
         else:
             normalized_coords = torch.cat([curvilinear_coords[...,0:1]/self.curvilinear_space.xi__1_max, curvilinear_coords[...,1:2]/self.curvilinear_space.xi__2_max], dim=2)
@@ -209,19 +209,42 @@ class ReferenceMidSurface():
         xi__1 = curvilinear_coords[...,0] 
         xi__2 = curvilinear_coords[...,1]
         match self.reference_geometry_name:
-            case 'rectangle_xy':
+            case 'napkin':
                 midsurface_positions = torch.stack([xi__1, xi__2, 0.* (xi__1**2 - xi__2**2)], dim=2)
-            case 'cylinder':
+            case 'sleeve':
                 R = 0.25
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
-            case 'cone':
+            case 'skirt':
                 R_top, R_bottom, L = 0.2, 1.5, 1
                 R = xi__2 * (R_top - R_bottom) / L + R_bottom
                 midsurface_positions = torch.stack([R * torch.cos(xi__1), xi__2, R * torch.sin(xi__1)], dim=2)
         return midsurface_positions
     
 from torch.nn.functional import normalize
-from utils.plot import get_plot_grid_tensor, get_plot_single_tensor
+import matplotlib.pyplot as plt
+
+def get_plot_single_tensor(tensor):
+    fig = plt.figure()
+    ax = fig.gca()
+    spatial_sidelen = math.isqrt(tensor.shape[1])
+    pcolormesh = ax.pcolormesh(tensor.view(spatial_sidelen, spatial_sidelen).detach().cpu())
+    fig.colorbar(pcolormesh, ax=ax)
+    return fig
+
+def get_plot_grid_tensor(tensor_1, tensor_2, tensor_3, tensor_4):
+    fig = plt.figure()
+    gs = fig.add_gridspec(2, 2, hspace=0, wspace=0.22)
+    (ax1, ax2), (ax3, ax4) = gs.subplots(sharex='col', sharey='row')
+    spatial_sidelen = math.isqrt(tensor_1.shape[1])
+    pcolormesh1 = ax1.pcolormesh(tensor_1.view(spatial_sidelen, spatial_sidelen).detach().cpu())
+    pcolormesh2 = ax2.pcolormesh(tensor_2.view(spatial_sidelen, spatial_sidelen).detach().cpu())
+    pcolormesh3 = ax3.pcolormesh(tensor_3.view(spatial_sidelen, spatial_sidelen).detach().cpu())
+    pcolormesh4 = ax4.pcolormesh(tensor_4.view(spatial_sidelen, spatial_sidelen).detach().cpu())
+    fig.colorbar(pcolormesh1, ax=ax1)
+    fig.colorbar(pcolormesh2, ax=ax2)
+    fig.colorbar(pcolormesh3, ax=ax3)
+    fig.colorbar(pcolormesh4, ax=ax4)
+    return fig
 
 class ReferenceGeometry(): 
     def __init__(self, reference_midsurface: ReferenceMidSurface):
@@ -235,11 +258,9 @@ class ReferenceGeometry():
         self.curvature_tensor()
         self.christoffel_symbol()
         self.coord_transform()
-        #'''
-        if debug and tb.writer:
-            tb.writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1[0], self.a_1_2[0],self.a_1_2[0], self.a_2_2[0]))
-            tb.writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1[0], self.b_1_2[0],self.b_2_1[0], self.b_2_2[0]))
-        #'''
+        if debug:
+            tb_writer.add_figure('metric_tensor', get_plot_grid_tensor(self.a_1_1, self.a_1_2, self.a_1_2, self.a_2_2))
+            tb_writer.add_figure('curvature_tensor', get_plot_grid_tensor(self.b_1_1, self.b_1_2, self.b_2_1, self.b_2_2))
             
     def base_vectors(self):
         base_vectors = jacobian(self.midsurface_positions, self.curvilinear_coords)[0]
@@ -404,10 +425,9 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     else: 
         epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2 = epsilon_1_1_linear, epsilon_1_2_linear, epsilon_2_2_linear, kappa_1_1_linear, kappa_1_2_linear, kappa_2_2_linear
     
-    #'''
-    if not i % 200 and tb.writer:
-        tb.writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1[0], epsilon_1_2[0], epsilon_1_2[0], epsilon_2_2[0]), i)
-        tb.writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1[0], kappa_1_2[0], kappa_1_2[0], kappa_2_2[0]), i)
+    if not i % 200:
+        tb_writer.add_figure(f'membrane_strain', get_plot_grid_tensor(epsilon_1_1, epsilon_1_2, epsilon_1_2, epsilon_2_2), i)
+        tb_writer.add_figure(f'bending_strain', get_plot_grid_tensor(kappa_1_1, kappa_1_2, kappa_1_2, kappa_2_2), i)
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2)
     
 class LinearMaterial():
@@ -446,29 +466,27 @@ class Energy:
         hyperelastic_strain_energy_mid = self.material.compute_internal_energy(strain)
         external_energy_mid = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
         mechanical_energy = (hyperelastic_strain_energy_mid - external_energy_mid) * torch.sqrt(self.ref_geometry.a)
-        #'''
-        if not i % 200 and tb.writer:
-            tb.writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 
-            tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0]), i)   
-        #'''     
+        if not i % 200:
+            tb_writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy_mid, i) 
+            tb_writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid), i)
         return mechanical_energy.mean()
                          
 def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, i: int):
     test_deformations = ndf(reference_midsurface.template_mesh.curvilinear_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts + test_deformations[0]
-    if tb.writer:
-        tb.writer.add_mesh('simulated_states', test_deformed_positions[None], faces=reference_midsurface.template_mesh.faces[None], global_step=i)
-        
+    tb_writer.add_mesh('simulated_states', test_deformed_positions[None], faces=reference_midsurface.template_mesh.faces[None], global_step=i)
+     
 def train(reference_geometry_name, boundary_condition_name, test_n_spatial_samples, n_iterations):
-    log_dir = os.path.join('logs', 'test')
+    log_dir = os.path.join('logs', reference_geometry_name)
             
-    tb.set_tensorboard_writer(log_dir, True)
+    global tb_writer
+    tb_writer = SummaryWriter(log_dir)
 
-    curvilinear_space = CurvilinearSpace(xi__1_max=2 * math.pi if reference_geometry_name in ['cylinder', 'cone'] else 1, xi__2_max=1)
+    curvilinear_space = CurvilinearSpace(xi__1_max=2 * math.pi if reference_geometry_name in ['sleeve', 'skirt'] else 1, xi__2_max=1)
     reference_midsurface = ReferenceMidSurface(reference_geometry_name, test_n_spatial_samples, curvilinear_space)
     boundary = Boundary(reference_geometry_name, boundary_condition_name, curvilinear_space)
     
-    ndf = Siren(boundary, in_features=3 if reference_geometry_name in ['cylinder', 'cone'] else 2).to(device)
+    ndf = Siren(boundary, in_features=3 if reference_geometry_name in ['sleeve', 'skirt'] else 2).to(device)
     optimizer = torch.optim.Adam(lr=5e-6, params=ndf.parameters())
     
     reference_geometry = ReferenceGeometry(reference_midsurface)
@@ -489,20 +507,12 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
         loss.backward()
         optimizer.step()    
         
-        #'''
-        tb.writer.add_scalar('loss/loss', loss, i)
-        tb.writer.add_scalar('param/mean_deformation', deformations.mean(), i)
-        #'''
+        tb_writer.add_scalar('loss/loss', loss, i)
+        tb_writer.add_scalar('param/mean_deformation', deformations.mean(), i)
         if not i % 100:
             print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
             test(ndf, reference_midsurface, i)
-            
-    #'''
-    tb.writer.flush()
-    tb.writer.close()
-    #'''
-    print(f'Evaluating NDF from checkpoint {n_iterations}')
-    test(ndf, reference_midsurface, n_iterations)
+    tb_writer.flush()
 
 if __name__=='__main__':
-    train('rectangle_xy', 'top_left_fixed', 400, 5001)
+    train('napkin', 'top_left_fixed', 400, 601)
