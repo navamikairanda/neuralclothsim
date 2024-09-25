@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from typing import Tuple, NamedTuple
-from pytorch3d.structures import Meshes
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -176,9 +175,6 @@ def jacobian(y: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, int]:
         status = -1
     return jac, status
 
-from pytorch3d.io import save_obj
-from pytorch3d.renderer.mesh.textures import TexturesUV
-
 def generate_mesh_topology(spatial_sidelen):
     rows = cols = spatial_sidelen
     last_face_index = cols * (rows - 1)
@@ -207,11 +203,7 @@ class ReferenceMidSurface():
         curvilinear_coords = get_mgrid((test_spatial_sidelen, test_spatial_sidelen), stratified=False, dim=2)[None]
         curvilinear_coords[...,0] *= curvilinear_space.xi__1_max
         curvilinear_coords[...,1] *= curvilinear_space.xi__2_max
-        vertices = self(curvilinear_coords)[0]
-        faces = torch.tensor(generate_mesh_topology(test_spatial_sidelen), device=device)
-        texture = TexturesUV(maps=torch.empty(1, 1, 1, 1, device=device), faces_uvs=[faces], verts_uvs=curvilinear_coords)
-        self.template_mesh = Meshes(verts=[vertices], faces=[faces], textures=texture).to(device)
-        #self.template_mesh = Mesh(verts=self(curvilinear_coords)[0], faces=generate_mesh_topology(test_n_spatial_samples), curvilinear_coords=curvilinear_coords)
+        self.template_mesh = Mesh(verts=self(curvilinear_coords)[0], faces=generate_mesh_topology(test_spatial_sidelen), curvilinear_coords=curvilinear_coords)
         
     def __call__(self, curvilinear_coords: torch.Tensor) -> torch.Tensor:
         xi__1 = curvilinear_coords[...,0] 
@@ -460,64 +452,24 @@ class Energy:
             tb.writer.add_figure(f'hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy_mid[0]), i)   
         #'''     
         return mechanical_energy.mean()
-
-def save_meshes(positions, faces, meshes_dir, i, verts_uvs=None):
-    meshes_dir = os.path.join(meshes_dir, f'{i}')
-    os.makedirs(meshes_dir, exist_ok=True)
-    save_obj(os.path.join(meshes_dir, 'simulated.obj'), positions[0], faces, verts_uvs=verts_uvs, faces_uvs=faces, texture_map=None)
-
-'''
-import configargparse
-
-def get_config_parser():
-    parser = configargparse.ArgumentParser()
-    parser.add('-c', '--config_filepath', required=True, is_config_file=True, help='config file path')
-    parser.add_argument('-n', '--expt_name', type=str, required=True, help='experiment name; this will also be the name of subdirectory in logging_dir')
-
-    # simulation parameters
-    parser.add_argument('--reference_geometry_name', type=str, default='rectangle_xy', help='name of the reference geometry; can be rectangle_xy, rectangle_xz, cylinder, cone or mesh')
-    parser.add_argument('--boundary_condition_name', type=str, default='top_left_fixed', help='name of the spatio-temporal boundary condition; can be one of top_left_fixed, top_left_top_right_moved, adjacent_edges_fixed, nonboundary_handle_fixed, nonboundary_edge_fixed for reference geometry as a rectangle, and top_bottom_rims_compression, top_bottom_rims_torsion for cylinder, top_rim_fixed, top_rim_torsion for cone, and mesh_vertices for mesh')
-    
-    # training options
-    parser.add_argument('--train_n_spatial_samples', type=int, default=400, help='N_omega, number of samples used for training; when the reference geometry is an analytical surface, the number of spatial grid samples along each curvilinear coordinate is square_root(N_omega)')
-    parser.add_argument('--n_iterations', type=int, default=5001, help='total number of training iterations')
-    parser.add_argument('--test_n_spatial_samples', type=int, default=400, help='N_omega, the number of samples used for evaluation when reference geometry is an analytical surface; if the reference geometry is instead a mesh, this argument is ignored, and the samples (vertices and faces) used for evaluation will match that of template mesh') 
-                            
-    return parser
-'''
-'''
-def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str, i: int):
+                         
+def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, i: int):
     test_deformations = ndf(reference_midsurface.template_mesh.curvilinear_coords)
     test_deformed_positions = reference_midsurface.template_mesh.verts + test_deformations[0]
     if tb.writer:
         tb.writer.add_mesh('simulated_states', test_deformed_positions[None], faces=reference_midsurface.template_mesh.faces[None], global_step=i)
-    #save_meshes(test_deformed_positions, reference_midsurface.template_mesh.faces, meshes_dir, i, reference_midsurface.template_mesh.curvilinear_coords[0])
-
-'''                            
-def test(ndf: Siren, reference_midsurface: ReferenceMidSurface, meshes_dir: str, i: int):
-    test_deformations = ndf(reference_midsurface.template_mesh.textures.verts_uvs_padded())
-    test_deformed_positions = reference_midsurface.template_mesh.verts_padded() + test_deformations
-    if tb.writer:
-        tb.writer.add_mesh('simulated_states', test_deformed_positions, faces=reference_midsurface.template_mesh.textures.faces_uvs_padded(), global_step=i)
-    save_meshes(test_deformed_positions, reference_midsurface.template_mesh.textures.faces_uvs_padded()[0], meshes_dir, i, reference_midsurface.template_mesh.textures.verts_uvs_padded()[0]) 
-#'''
         
 def train(reference_geometry_name, boundary_condition_name, test_n_spatial_samples, n_iterations):
-    #args = get_config_parser().parse_args()
     log_dir = os.path.join('logs', 'test')
-    meshes_dir = os.path.join(log_dir, 'meshes')
             
     tb.set_tensorboard_writer(log_dir, True)
 
-    #curvilinear_space = CurvilinearSpace(args.xi__1_max, args.xi__2_max)
     curvilinear_space = CurvilinearSpace(xi__1_max=2 * math.pi if reference_geometry_name in ['cylinder', 'cone'] else 1, xi__2_max=1)
     reference_midsurface = ReferenceMidSurface(reference_geometry_name, test_n_spatial_samples, curvilinear_space)
     boundary = Boundary(reference_geometry_name, boundary_condition_name, curvilinear_space)
     
     ndf = Siren(boundary, in_features=3 if reference_geometry_name in ['cylinder', 'cone'] else 2).to(device)
     optimizer = torch.optim.Adam(lr=5e-6, params=ndf.parameters())
-    
-    #print(f'Starting experiment {args.expt_name}')
     
     reference_geometry = ReferenceGeometry(reference_midsurface)
     material = LinearMaterial(0.144, 0.0012, 5000, 0.25, reference_geometry)
@@ -543,14 +495,14 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
         #'''
         if not i % 100:
             print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
-            test(ndf, reference_midsurface, meshes_dir, i)
+            test(ndf, reference_midsurface, i)
             
     #'''
     tb.writer.flush()
     tb.writer.close()
     #'''
     print(f'Evaluating NDF from checkpoint {n_iterations}')
-    test(ndf, reference_midsurface, meshes_dir, n_iterations)
+    test(ndf, reference_midsurface, n_iterations)
 
 if __name__=='__main__':
     train('rectangle_xy', 'top_left_fixed', 400, 5001)
