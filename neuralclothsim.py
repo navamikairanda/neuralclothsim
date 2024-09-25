@@ -69,48 +69,15 @@ class Boundary:
             case 'top_left_fixed':
                 top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 deformations = deformations * (1 - top_left_corner)
-            case 'top_left_top_right_moved':
-                top_left_corner = torch.exp(-(curvilinear_coords[...,0:1] ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__1_max) ** 2)/self.boundary_support)
-                top_right_corner = torch.exp(-((curvilinear_coords[...,0:1] - self.curvilinear_space.xi__1_max) ** 2 + (curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)                
-                temporal_motion = 0.2 * torch.ones_like(curvilinear_coords[...,0:1])               
-                corner_displacement = torch.cat([temporal_motion, torch.zeros_like(temporal_motion), torch.zeros_like(temporal_motion)], dim=2)                    
-                deformations = deformations * (1 - top_left_corner) * (1 - top_right_corner) + corner_displacement * top_left_corner - corner_displacement * top_right_corner                                
-            case 'adjacent_edges_fixed':
-                left_edge = torch.exp(-(curvilinear_coords[...,0:1] ** 2)/self.boundary_support)
-                right_edge = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
-                deformations = deformations * (1 - left_edge) * (1 - right_edge)
-            case 'nonboundary_handle_fixed':
-                center_point = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.curvilinear_space.xi__1_max) ** 2 + (curvilinear_coords[...,1:2] - 0.7 * self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - center_point)
-            case 'nonboundary_edge_fixed':
-                center_edge = torch.exp(-((curvilinear_coords[...,0:1] - 0.5 * self.curvilinear_space.xi__1_max) ** 2)/self.boundary_support)
-                deformations = deformations * (1 - center_edge)
             case 'top_bottom_rims_compression':                
                 bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 temporal_motion = 0.075 * torch.ones_like(curvilinear_coords[...,0:1])
                 rim_displacement = torch.cat([torch.zeros_like(temporal_motion), temporal_motion, torch.zeros_like(temporal_motion)], dim=2)
                 deformations = deformations * (1 - bottom_rim) * (1 - top_rim) - rim_displacement * top_rim + rim_displacement * bottom_rim
-            case 'top_bottom_rims_torsion':
-                self.boundary_support = 0.001
-                bottom_rim = torch.exp(-(curvilinear_coords[...,1:2] ** 2)/self.boundary_support)
-                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                R = 0.25
-                rotation = math.pi / 4 #3 * math.pi / 4
-                temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
-                top_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
-                bottom_rim_displacement = torch.cat([R * (torch.cos(curvilinear_coords[...,0:1] - temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R * (torch.sin(curvilinear_coords[...,0:1] - temporal_motion) - torch.sin(curvilinear_coords[...,0:1])), ], dim=2)                
-                deformations = deformations * (1 - bottom_rim) * (1 - top_rim) + top_rim_displacement * top_rim + bottom_rim_displacement * bottom_rim              
             case 'top_rim_fixed':
                 top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
                 deformations = deformations * (1 - top_rim)
-            case 'top_rim_torsion':
-                top_rim = torch.exp(-((curvilinear_coords[...,1:2] - self.curvilinear_space.xi__2_max) ** 2)/self.boundary_support)
-                R_top = 0.2
-                rotation = math.pi / 2
-                temporal_motion = torch.ones_like(curvilinear_coords[...,0:1]) * rotation
-                top_rim_displacement = torch.cat([R_top * (torch.cos(curvilinear_coords[...,0:1] + temporal_motion) - torch.cos(curvilinear_coords[...,0:1])), torch.zeros_like(temporal_motion), R_top * (torch.sin(curvilinear_coords[...,0:1] + temporal_motion) - torch.sin(curvilinear_coords[...,0:1]))], dim=2)
-                deformations = deformations * (1 - top_rim) + top_rim_displacement * top_rim
         return deformations
 
 class SineLayer(nn.Module):      
@@ -455,10 +422,10 @@ class LinearMaterial():
         return hyperelastic_strain_energy
 
 class Energy:
-    def __init__(self, ref_geometry: ReferenceGeometry, material: LinearMaterial, train_n_spatial_samples: int):
+    def __init__(self, ref_geometry: ReferenceGeometry, material: LinearMaterial, train_n_spatial_samples: int, gravity_acceleration):
         self.ref_geometry = ref_geometry
         self.material = material
-        self.external_load = torch.tensor([0,-9.8, 0], device=device).expand(1, train_n_spatial_samples, 3) * material.mass_area_density
+        self.external_load = torch.tensor(gravity_acceleration, device=device).expand(1, train_n_spatial_samples, 3) * material.mass_area_density
         
     def __call__(self, deformations: torch.Tensor, i: int) -> torch.Tensor:   
         strain = compute_strain(deformations, self.ref_geometry, i)
@@ -493,7 +460,7 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
     material = LinearMaterial(0.144, 0.0012, 5000, 0.25, reference_geometry)
     
     train_n_spatial_samples = 400
-    energy = Energy(reference_geometry, material, train_n_spatial_samples)    
+    energy = Energy(reference_geometry, material, train_n_spatial_samples, gravity_acceleration=[0, 0, 0] if reference_geometry_name == 'sleeve' else [0, 0, -9.8])    
     sampler = GridSampler(train_n_spatial_samples, curvilinear_space)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
         
@@ -514,5 +481,6 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
             test(ndf, reference_midsurface, i)
     tb_writer.flush()
 
-if __name__=='__main__':
-    train('napkin', 'top_left_fixed', 400, 601)
+#train('napkin', 'top_left_fixed', 400, 601)
+train('sleeve', 'top_bottom_rims_compression', 400, 601)
+#train('skirt', 'top_rim_fixed', 400, 601)
