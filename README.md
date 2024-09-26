@@ -16,7 +16,8 @@ This repository contains the official implementation of the paper "NeuralClothSi
 *Despite existing 3D cloth simulators producing realistic results, they predominantly operate on discrete surface representations (e.g. points and meshes) with a fixed spatial resolution, which often leads to large memory consumption and resolution-dependent simulations. Moreover, back-propagating gradients through the existing solvers is difficult, and they hence cannot be easily integrated into modern neural architectures. In response, this paper re-thinks physically plausible cloth simulation: We propose NeuralClothSim, i.e., a new quasistatic cloth simulator using thin shells, in which surface deformation is encoded in neural network weights in the form of a neural field. Our memory-efficient solver operates on a new continuous coordinate-based surface representation called neural deformation fields (NDFs); it supervises NDF equilibria with the laws of the non-linear Kirchhoff-Love shell theory with a non-linear anisotropic material model. NDFs are adaptive: They 1) allocate their capacity to the deformation details and 2) allow surface state queries at arbitrary spatial resolutions without re-training. We show how to train NeuralClothSim while imposing hard boundary conditions and demonstrate multiple applications, such as material interpolation and simulation editing. The experimental results highlight the effectiveness of our continuous neural formulation.*
 
 ## News
-* [12.09.2024] We have released the source code for NeuralClothSim. 
+* [12.09.2024] We have released the source code for NeuralClothSim.
+* [26.09.2024] Our paper has been accepted at NeurIPS 2024!
 
 ## Installation
 Clone this repository to `${code_root}`. The following sets up a new conda environment with all NeuralClothSim dependencies.
