@@ -373,7 +373,7 @@ def compute_strain(deformations: torch.Tensor, ref_geometry: ReferenceGeometry, 
     else: 
         epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2 = epsilon_1_1_linear, epsilon_1_2_linear, epsilon_2_2_linear, kappa_1_1_linear, kappa_1_2_linear, kappa_2_2_linear
     
-    if not i % 200:
+    if not i % 100:
         tb_writer.add_figure(f'strain/membrane_strain', get_plot_grid_tensor(epsilon_1_1, epsilon_1_2, epsilon_1_2, epsilon_2_2), i)
         tb_writer.add_figure(f'strain/bending_strain', get_plot_grid_tensor(kappa_1_1, kappa_1_2, kappa_1_2, kappa_2_2), i)
     return Strain(epsilon_1_1, epsilon_1_2, epsilon_2_2, kappa_1_1, kappa_1_2, kappa_2_2)
@@ -414,7 +414,7 @@ class Energy:
         hyperelastic_strain_energy = self.material.compute_internal_energy(strain)
         external_energy = torch.einsum('ijk,ijk->ij', self.external_load, deformations)
         mechanical_energy = (hyperelastic_strain_energy - external_energy) * torch.sqrt(self.ref_geometry.a)
-        if not i % 200:
+        if not i % 100:
             tb_writer.add_histogram('param/hyperelastic_strain_energy', hyperelastic_strain_energy, i) 
             tb_writer.add_figure('strain/hyperelastic_strain_energy', get_plot_single_tensor(hyperelastic_strain_energy), i)
         return mechanical_energy.mean()
@@ -435,13 +435,13 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
     boundary = Boundary(reference_geometry_name, boundary_condition_name, curvilinear_space)
     
     ndf = Siren(boundary, in_features=3 if reference_geometry_name in ['sleeve', 'skirt'] else 2).to(device)
-    optimizer = torch.optim.Adam(lr=5e-6, params=ndf.parameters())
+    optimizer = torch.optim.Adam(lr=1e-5, params=ndf.parameters())
     
     reference_geometry = ReferenceGeometry(reference_midsurface)
     material = LinearMaterial(0.144, 0.0012, 5000, 0.25, reference_geometry)
     
     train_n_spatial_samples = 400
-    energy = Energy(reference_geometry, material, train_n_spatial_samples, gravity_acceleration=[0, 0, 0] if reference_geometry_name == 'sleeve' else [0, 0, -9.8])    
+    energy = Energy(reference_geometry, material, train_n_spatial_samples, gravity_acceleration=[0, 0, 0] if reference_geometry_name == 'sleeve' else [0,-9.8, 0])    
     sampler = GridSampler(train_n_spatial_samples, curvilinear_space)
     dataloader = DataLoader(sampler, batch_size=1, num_workers=0)
         
@@ -457,11 +457,16 @@ def train(reference_geometry_name, boundary_condition_name, test_n_spatial_sampl
         
         tb_writer.add_scalar('scalar/loss', loss, i)
         tb_writer.add_scalar('scalar/mean_deformation', deformations.mean(), i)
+        
+        new_lrate = 1e-5 * 0.1 ** (i / 2000)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = new_lrate 
+                
         if not i % 100:
             print(f'Iteration: {i}, loss: {loss}, mean_deformation: {deformations.mean()}')
             test(ndf, reference_midsurface, i)
     tb_writer.flush()
 
-train('napkin', 'top_left_fixed', 400, 1001)
-#train('sleeve', 'top_bottom_rims_compression', 400, 4001)
-#train('skirt', 'top_rim_fixed', 400, 601)
+train('napkin', 'top_left_fixed', 2500, 1001)
+#train('sleeve', 'top_bottom_rims_compression', 10000, 4001)
+#train('skirt', 'top_rim_fixed', 10000, 601)
