@@ -42,7 +42,7 @@ class ReferenceMidSurface():
                 self.boundary_curvilinear_coords = self.template_mesh.textures.verts_uvs_padded()[0][args.reference_boundary_vertices]
             self.fit_reference_mlp(args.reference_mlp_lrate, args.reference_mlp_n_iterations)
             reference_mlp_verts_pred = self(self.template_mesh.textures.verts_uvs_padded())
-            self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)            
+            self.template_mesh = self.template_mesh.update_padded(reference_mlp_verts_pred)
             self.temporal_coords = self.temporal_coords.repeat_interleave(self.template_mesh.num_verts_per_mesh().item(), 0)[None]
         else:
             # for analytical surface, use equal number of samples along each curvilinear coordinate

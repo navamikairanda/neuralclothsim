@@ -1,5 +1,5 @@
 # NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory
-### [Project Page](https://4dqv.mpi-inf.mpg.de/NeuralClothSim/) | [arXiv](https://arxiv.org/pdf/2308.12970) | [Video](https://www.youtube.com/watch?v=z-7MBiAi7SM) 
+### [Project Page](https://4dqv.mpi-inf.mpg.de/NeuralClothSim/) | [Paper](https://arxiv.org/pdf/2308.12970) | [Video](https://www.youtube.com/watch?v=z-7MBiAi7SM) 
 [![Explore NeuralClothSim in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/navamikairanda/neuralclothsim/blob/main/neuralclothsim.ipynb)<br>
 
 [Navami Kairanda](https://people.mpi-inf.mpg.de/~nkairand/),
@@ -7,6 +7,7 @@
 [Christian Theobalt](https://people.mpi-inf.mpg.de/~theobalt/),
 [Vladislav Golyanik](https://people.mpi-inf.mpg.de/~golyanik/) <br>
 Max Planck Institute for Informatics <br>
+in NeurIPS 2024
 
 This repository contains the official implementation of the paper "NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory".
 
@@ -123,11 +124,11 @@ We thank the authors of this project.
 
 If you use this code for your research, please cite:
 ```
-@article{kair2023neuralclothsim, 
+@inproceedings{kair2024neuralclothsim, 
 	title={NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory}, 
 	author={Navami Kairanda and Marc Habermann and Christian Theobalt and Vladislav Golyanik}, 
-	journal = {arXiv:2308.12970v2}, 
-	year={2023} 
+	journal = {Neural Information Processing Systems (NeurIPS)}, 
+	year={2024} 
 }
 ```
 
