@@ -127,7 +127,7 @@ If you use this code for your research, please cite:
 @inproceedings{kair2024neuralclothsim, 
 	title={NeuralClothSim: Neural Deformation Fields Meet the Thin Shell Theory}, 
 	author={Navami Kairanda and Marc Habermann and Christian Theobalt and Vladislav Golyanik}, 
-	journal = {Neural Information Processing Systems (NeurIPS)}, 
+	booktitle={Neural Information Processing Systems (NeurIPS)}, 
 	year={2024} 
 }
 ```
